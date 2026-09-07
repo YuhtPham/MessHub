@@ -1,21 +1,16 @@
-# 9Meta
+# MessHub
 
-<p align="center">
-  <img src="icon.png" width="72" height="72" alt="9Meta" />
-</p>
+[![MessHub](https://github.com/YuhtPham/MessHub/raw/main/icon.png)](./icon.png)
 
-<p align="center">
-  <strong>9Meta</strong> — ứng dụng desktop quản lý đa tài khoản Zalo, Messenger, Fanpage, Telegram, WhatsApp và các nền tảng chat phổ biến.
-</p>
+**MessHub** — ứng dụng desktop quản lý đa tài khoản Zalo, Messenger, Fanpage, Telegram, WhatsApp và các nền tảng chat phổ biến.
+
 ---
 
 ## Giới thiệu
 
-**9Meta** là ứng dụng quản lý nhiều tài khoản chat trên desktop, được xây dựng bằng Electron/Chromium. Ứng dụng tập trung vào năng suất cho người dùng nhiều tài khoản: tách dữ liệu từng profile, quản lý CRM mini, gửi campaign Zalo, quick replies, AI rewrite, dashboard và các công cụ tiện ích khi chăm sóc khách hàng.
+**MessHub** là ứng dụng Electron cho phép quản lý nhiều tài khoản chat trên một giao diện duy nhất. Dùng Chromium BrowserView để tách dữ liệu session của từng profile, tránh trộn thông tin đăng nhập. Tập trung vào năng suất cho người dùng nhiều tài khoản: workspace riêng biệt, quick replies thông minh, badge thông báo theo platform, khóa ứng dụng, và các tiện ích hữu ích khác.
 
-<p align="center">
-  <img src="preview.png" alt="9Meta Preview" style="max-width: 100%; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);"/>
-</p>
+[![MessHub Preview](https://github.com/YuhtPham/MessHub/raw/main/preview.png)](./preview.png)
 
 ---
 
@@ -23,304 +18,282 @@
 
 ### 1. Quản lý đa tài khoản
 
-- Tạo nhiều profile đăng nhập riêng biệt.
-- Mỗi profile dùng session/partition riêng, hạn chế trộn dữ liệu đăng nhập.
-- Hỗ trợ đặt tên, avatar, proxy và nền tảng cho từng profile.
-- Chuyển nhanh giữa các tài khoản bằng sidebar bên trái.
-- Badge thông báo chưa đọc theo từng profile.
+- **Tạo profile riêng biệt**: Mỗi tài khoản có session/partition riêng, tránh trộn dữ liệu.
+- **Đặt tên & avatar**: Hiển thị tên tùy chỉnh hoặc icon nền tảng trên sidebar.
+- **Cấu hình proxy**: Hỗ trợ proxy cho mỗi profile (định dạng: `ip:port` hoặc `ip:port:user:pass`).
+- **Chuyển nhanh**: Click trên sidebar bên trái để chuyển profile al chóp.
+- **Badge thông báo**: Hiển thị số tin nhắn chưa đọc trên mỗi profile.
+- **Chỉnh sửa / Xóa**: Click chuột phải trên profile để sửa hoặc xóa (phải có ≥2 profile).
 
 ### 2. Hỗ trợ nhiều nền tảng
 
-9Meta hỗ trợ các nền tảng chat phổ biến:
+MessHub có thể quản lý các nền tảng:
 
-- Zalo
-- Messenger
-- Fanpage/Facebook
-- Telegram
-- WhatsApp
-- Teams
-- Gmail
-
-> **Lưu ý:** Một số tính năng nâng cao như gửi hàng loạt campaign hiện chỉ áp dụng cho **Zalo**.
-
-### 3. Workspace tách dữ liệu
-
-- Tạo nhiều workspace khác nhau.
-- Mỗi workspace lưu riêng:
-  - danh sách profile
-  - CRM contacts
-  - quick replies
-  - campaigns
-  - analytics events
-  - AI settings
-- Phù hợp khi tách dữ liệu theo dự án, khách hàng, đội nhóm hoặc nhóm tài khoản.
-
-### 4. Dashboard / Analytics
-
-Dashboard hiển thị nhanh:
-
-- số lượng profile
-- số CRM contacts
-- số campaigns
-- số quick replies
-- lịch sử downloads
-- activity/events gần đây
-- trạng thái campaign gửi thành công/thất bại
-
-### 5. CRM mini theo profile
-
-- Mỗi contact CRM được gắn với profile cụ thể.
-- Trường thông tin hỗ trợ:
-  - tên khách hàng
-  - số điện thoại
-  - trạng thái
-  - tags
-  - ghi chú nội bộ
-- Có thể lấy nhanh snapshot từ tab chat hiện tại để điền CRM.
-- Dùng CRM làm nguồn target cho campaign Zalo.
-
-### 6. Campaign Zalo / gửi tin nhắn hàng loạt
-
-Tính năng campaign hiện được giới hạn cho **Zalo**.
-
-Hỗ trợ các chế độ:
-
-- **Gửi qua tất cả tài khoản Zalo**
-  - Lần lượt chuyển qua từng profile Zalo trong workspace.
-  - Gửi nội dung vào hội thoại Zalo đang mở sẵn của từng tài khoản.
-  - Có delay ngẫu nhiên giữa các lần gửi.
-  - Có log theo từng tài khoản.
-
-- **Gửi ở Zalo account hiện tại**
-  - Gửi tin nhắn bằng profile Zalo đang active.
-  - Phù hợp khi bạn chỉ dùng một tài khoản Zalo cho campaign.
-
-- **Assist mode an toàn**
-  - Không tự động thao tác gửi mạnh.
-  - Lưu queue/log để bạn tự kiểm soát quá trình gửi.
-
-Campaign hỗ trợ:
-
-- tên chiến dịch
-- nội dung tin nhắn
-- delay min/max
-- giới hạn target/contact
-- pause campaign
-- stop campaign
-- log sent/failed
-
-> **Quan trọng:** Mode gửi qua tất cả tài khoản Zalo hiện gửi vào **hội thoại đang mở sẵn** của từng tài khoản. Nếu muốn tự tìm contact, tự mở đúng hội thoại theo số điện thoại/tên rồi gửi, cần phát triển thêm phase tự động tìm kiếm/open chat.
-
-### 7. Quick Replies
-
-- Lưu các mẫu tin nhắn thường dùng.
-- Gõ shortcut dạng `/1`, `/2`, `/3`... trong ô chat rồi Enter để chèn/gửi nhanh mẫu tin.
-- Có popup gợi ý khi gõ `/`.
-- Quick replies được lưu theo workspace.
-
-### 8. AI Quick Reply / Rewrite
-
-- Cấu hình AI endpoint, API key và model.
-- Viết lại nội dung tin nhắn theo nhiều mục tiêu.
-- Copy nhanh kết quả AI.
-- Lưu kết quả AI thành quick reply.
-
-Ví dụ dùng AI để:
-
-- viết lại tin nhắn bán hàng tự nhiên hơn
-- làm nội dung ngắn gọn hơn
-- làm nội dung lịch sự hơn
-- tạo phản hồi chăm sóc khách hàng
-
-### 9. Chống seen / typing
-
-- Có tùy chọn chặn seen.
-- Có tùy chọn chặn typing.
-- Hỗ trợ nhiều nền tảng tùy theo API/DOM thực tế.
-
-### 10. Tự xử lý popup Zalo
-
-9Meta tự động xử lý một số popup/banner hay xuất hiện trên Zalo Web:
-
-- tự ấn **Cho phép** khi Zalo hỏi quyền truy cập thư mục tải về
-- tự đóng banner **Sử dụng Zalo PC... Tải ngay**
-- chỉ áp dụng logic này cho Zalo
-
-### 11. Downloads manager
-
-- Theo dõi file đang tải.
-- Hiển thị trạng thái tải.
-- Mở file sau khi tải xong.
-- Mở thư mục chứa file.
-- Xóa item khỏi danh sách downloads.
-
-### 12. Lock app / bảo mật
-
-- Khóa ứng dụng bằng mật khẩu.
-- Hỗ trợ lock khi khởi động.
-- Phím tắt nhanh khóa app: `Ctrl/Cmd + L`.
-
-### 13. Tiện ích cửa sổ
-
-- Dark mode / light mode.
-- Zoom in / zoom out.
-- Fullscreen.
-- Always on top.
-- Reload tab.
-- System tray.
-- Auto updater.
+- 💬 **Zalo**
+- 💙 **Messenger**
+- 🚩 **Facebook Fanpage**
+- ✈️ **Telegram**
+- 💚 **WhatsApp**
+- 🟣 **Microsoft Teams**
+- 📧 **Gmail**
+- 📍 **TikTok**
 
 ---
 
-## Cách sử dụng
+### 3. Workspace — Tách dữ liệu theo dự án
 
-### 1. Chạy ứng dụng ở môi trường dev
+- **Tạo workspace**: Mỗi workspace lưu riêng danh sách profile và quick replies.
+- **Chuyển workspace**: Click "Workspace" để xem danh sách và chuyển đổi.
+- **Dữ liệu tách biệt**: Profile của workspace A không hiển thị ở workspace B.
+- **Use case**: Tách dữ liệu theo khách hàng, dự án, hoặc nhóm tài khoản.
 
-Cài dependencies:
+---
+
+### 4. Quick Replies — Mẫu tin nhắn nhanh
+
+- **Lưu mẫu**: Mở "Quick Replies" → thêm nội dung cần lưu.
+- **Sử dụng**: Gõ `/1`, `/2`, `/3`... trong ô chat rồi nhấn Enter.
+- **Chỉnh sửa**: Click nút "Sửa" để cập nhật hoặc "Xóa" để loại bỏ.
+- **Lưu theo workspace**: Mỗi workspace có bộ quick replies riêng.
+
+---
+
+### 5. Analytics — Theo dõi sự kiện
+
+- **Lưu lịch sử**: Mỗi hành động (thêm profile, tạo workspace, thêm quick reply...) được ghi lại.
+- **Giới hạn 500 events**: Giữ 500 event gần nhất để tiết kiệm tài nguyên.
+- **Dùng nội bộ**: Dữ liệu dùng để tracking và debugging.
+
+---
+
+### 6. Chống seen / Chặn typing
+
+- **Block seen**: Tùy chọn để không báo đã xem tin nhắn.
+- **Block typing**: Tùy chọn để không hiển thị trạng thái "đang gõ".
+- **Bật/tắt**: Trong Settings để kích hoạt/tắt cho tất cả session.
+
+---
+
+### 7. Tự xử lý popup Zalo
+
+- **Cho phép quyền tự động**: Khi Zalo Web hỏi quyền thư mục tải, ứng dụng tự ấn "Cho phép".
+- **Đóng banner**: Tự động đóng banner "Sử dụng Zalo PC... Tải ngay".
+- **Chỉ cho Zalo**: Logic này áp dụng riêng cho nền tảng Zalo.
+
+---
+
+### 8. Downloads Manager
+
+- **Theo dõi tải xuống**: Xem danh sách file đang tải.
+- **Mở file**: Click để mở file sau khi tải xong.
+- **Mở thư mục**: Dễ dàng truy cập thư mục chứa file.
+- **Xóa từ danh sách**: Loại bỏ item khỏi lịch sử.
+
+---
+
+### 9. Khóa ứng dụng (Lock App)
+
+- **Bảo mật**: Khóa ứng dụng bằng mật khẩu.
+- **Tạo lần đầu**: Lần đầu bấm khóa, bạn sẽ tạo mật khẩu.
+- **Lock on startup**: Tùy chọn để khóa app khi khởi động.
+- **Phím tắt**: `Ctrl/Cmd + L` để khóa nhanh.
+- **Unlocking**: Nhập mật khẩu để mở khóa.
+
+---
+
+### 10. Dark/Light Mode
+
+- **Dark mode**: Giao diện tối (mặc định).
+- **Light mode**: Giao diện sáng.
+- **Chuyển đổi**: Click nút Sun/Moon ở sidebar để đổi.
+- **Lưu trữ**: Cài đặt được lưu và khôi phục khi khởi động lại.
+
+---
+
+### 11. Tiện ích cửa sổ
+
+- **Zoom in / out**: Phóng to/thu nhỏ giao diện.
+- **Fullscreen**: Toàn màn hình.
+- **Always on top**: Giữ cửa sổ luôn ở trên cùng.
+- **Reload tab**: Làm tươi lại trang web.
+- **Go back**: Lùi lại trang trước.
+- **System tray**: Giảm xuống khay hệ thống.
+- **Global hotkey**: `Ctrl+Shift+M` để bật/tắt app (có thể tùy chỉnh).
+
+---
+
+### 12. Auto-update
+
+- **Kiểm tra cập nhật**: Mở "Update" để xem phiên bản mới.
+- **Tải xuống**: Nút "Tải xuống" để download update.
+- **Cài đặt**: Nút "Cài đặt" để cài đặt và khởi động lại app.
+- **GitHub releases**: Dùng electron-updater để pull từ GitHub.
+
+---
+
+## Cài đặt & Chạy
+
+### Yêu cầu
+
+- **Node.js**: v14+ (khuyên dùng v18+)
+- **npm**: v6+
+
+### Chạy ở môi trường dev
 
 ```bash
 npm install
-```
-
-Chạy app:
-
-```bash
 npm start
 ```
 
-### 2. Build ứng dụng
+### Build ứng dụng
 
-Build Windows:
-
+**Windows:**
 ```bash
-npm run build
+npm run build:win
 ```
 
-Build macOS:
-
+**macOS:**
 ```bash
 npm run build:mac
 ```
 
-Build bản portable Windows:
+**Linux:**
+```bash
+npm run build
+```
 
+**Windows Portable:**
 ```bash
 npm run build:portable
 ```
 
 ---
 
-## Hướng dẫn dùng nhanh
+## Hướng dẫn sử dụng
 
 ### Thêm tài khoản mới
 
-1. Bấm nút **+** ở sidebar.
-2. Nhập tên tài khoản.
-3. Chọn nền tảng, ví dụ `Zalo`.
-4. Có thể thêm proxy/avatar nếu cần.
-5. Bấm **Lưu**.
-6. Đăng nhập tài khoản trong tab vừa tạo.
+1. Bấm nút **+** ở sidebar bên trái.
+2. Điền thông tin:
+   - **Tên**: Hiển thị trên sidebar (nếu để trống sẽ lấy tên từ nền tảng).
+   - **Platform**: Chọn Zalo, Messenger, Telegram, v.v.
+   - **Proxy** (tùy chọn): `ip:port` hoặc `ip:port:user:pass`.
+   - **Avatar** (tùy chọn): Click ảnh để chọn avatar tùy chỉnh.
+3. Bấm **Lưu**.
+4. Đăng nhập tài khoản trong tab BrowserView vừa tạo.
 
-### Chuyển tài khoản
+### Chuyển đổi giữa các tài khoản
 
-- Bấm vào avatar/profile ở sidebar bên trái.
-- App sẽ chuyển sang BrowserView/session của profile đó.
+- Bấm vào profile button trên sidebar để chuyển sang profile đó.
+- BrowserView sẽ chuyển sang session của profile được chọn.
 
 ### Sửa hoặc xóa tài khoản
 
-- Click chuột phải vào profile trong sidebar.
-- Sửa tên, nền tảng, proxy hoặc avatar.
-- Có thể xóa profile nếu workspace còn nhiều hơn 1 profile.
+- **Click chuột phải** trên profile button.
+- Cửa sổ modal mở lên với tùy chọn chỉnh sửa.
+- Bấm **Xóa** để loại bỏ profile (cần có ≥2 profile).
 
-### Tạo workspace
+### Tạo Workspace mới
 
-1. Bấm nút **Workspace**.
-2. Nhập tên workspace mới.
-3. Bấm tạo workspace.
-4. App sẽ chuyển sang workspace mới với dữ liệu riêng.
+1. Bấm nút **Workspace** (icon 🗂️).
+2. Nhập tên workspace.
+3. Bấm **Tạo mới**.
+4. App chuyển sang workspace mới với danh sách profile riêng.
 
-### Dùng CRM mini
+### Sử dụng Quick Replies
 
-1. Chọn profile cần quản lý khách hàng.
-2. Bấm **CRM**.
-3. Nhập thông tin contact:
-   - tên
-   - số điện thoại
-   - trạng thái
-   - tags
-   - ghi chú
-4. Bấm **Lưu contact**.
+1. Bấm **Quick Replies** (💬).
+2. Thêm nội dung mẫu tin nhắn.
+3. Trong ô chat, gõ:
+   - `/1` → Tin nhắn mẫu thứ 1
+   - `/2` → Tin nhắn mẫu thứ 2
+   - `/3` → Tin nhắn mẫu thứ 3
+4. Nhấn **Enter** để gửi.
 
-Nếu đang mở sẵn một hội thoại, có thể dùng nút lấy snapshot tab hiện tại để điền nhanh thông tin.
+### Khóa ứng dụng
 
-### Tạo campaign Zalo
+- **Lần đầu**: Bấm khóa → tạo mật khẩu.
+- **Khóa nhanh**: `Ctrl/Cmd + L` hoặc click nút khóa trên UI.
+- **Mở khóa**: Nhập mật khẩu.
+- **Lock on startup**: Bật trong Settings để khóa tự động khi khởi động.
 
-1. Chọn một profile nền tảng **Zalo**.
-2. Bấm **Campaign**.
-3. Nhập tên chiến dịch.
-4. Nhập nội dung tin nhắn.
-5. Chọn delay min/max.
-6. Chọn giới hạn target.
-7. Chọn mode gửi:
-   - `Gửi qua tất cả tài khoản Zalo`
-   - `Gửi ở Zalo account hiện tại`
-   - `Assist mode an toàn`
-8. Bấm **Tạo campaign Zalo**.
-9. Chọn campaign vừa tạo.
-10. Bấm **Chạy campaign chọn**.
+### Cấu hình cài đặt
 
-> Khuyến nghị: nên test với 1-2 tài khoản trước, dùng delay cao như 5-15 giây để giảm rủi ro bị nền tảng hạn chế thao tác tự động.
+Click **Settings** để:
+- **Dark/Light Mode**: Chuyển giao diện.
+- **Always On Top**: Giữ cửa sổ luôn ở trên.
+- **Block Seen/Typing**: Tắt trạng thái xem và gõ (nếu nền tảng hỗ trợ).
+- **Lock on Startup**: Khóa app khi khởi động.
 
-### Dùng Quick Replies
+---
 
-1. Bấm **Quick Replies**.
-2. Thêm mẫu tin nhắn.
-3. Trong ô chat, gõ `/1`, `/2`, `/3`... tương ứng với thứ tự mẫu.
-4. Nhấn Enter để dùng mẫu.
+## Tech Stack
 
-### Dùng AI Rewrite
+- **Framework**: Electron 29.0.0
+- **Render Engine**: Chromium (BrowserView)
+- **Frontend**: HTML, CSS, JavaScript
+- **Build**: electron-builder 24.13.3
+- **Update**: electron-updater 6.8.3
 
-1. Bấm **AI**.
-2. Nhập AI endpoint.
-3. Nhập API key.
-4. Nhập model, ví dụ `gpt-4o-mini`.
-5. Nhập nội dung cần viết lại.
-6. Chọn mode rewrite.
-7. Bấm chạy AI.
-8. Copy kết quả hoặc lưu thành quick reply.
+---
 
-### Khóa app
+## Cấu trúc dự án
 
-- Bấm nút khóa trên giao diện, hoặc dùng phím tắt:
-
-```text
-Ctrl/Cmd + L
+```
+MessHub/
+├── main.js           # Process chính (Electron)
+├── preload.js        # Preload script (IPC setup)
+├── renderer.js       # Logic UI frontend
+├── index.html        # HTML chính
+├── custom_style.css  # CSS tùy chỉnh
+├── package.json      # Metadata & scripts
+├── backend/          # Backend (tùy chọn, chưa dùng)
+└── docs/             # Tài liệu
 ```
 
-Lần đầu khóa app, bạn sẽ được yêu cầu tạo mật khẩu.
-
 ---
 
-## Lưu ý an toàn khi dùng campaign
+## Tác giả
 
-- Không nên gửi quá nhanh.
-- Không nên gửi nội dung spam hoặc vi phạm chính sách nền tảng.
-- Nên dùng delay ngẫu nhiên đủ lớn.
-- Nên test bằng tài khoản phụ trước.
-- Với Zalo, nên mở sẵn hội thoại cần gửi nếu dùng mode auto hiện tại.
+**YuhtPham** - Nhà phát triển chính
 
 ---
-
-## Tech stack
-
-- Electron
-- Chromium BrowserView
-- HTML
-- CSS
-- JavaScript
-- electron-builder
-- electron-updater
 
 ## License
 
-MIT
+**MIT License** - Tự do sử dụng, sửa đổi, và phân phối.
+
+---
+
+## Liên hệ & Hỗ trợ
+
+Nếu gặp lỗi hoặc có đề xuất tính năng:
+- Tạo **Issue** trên [GitHub repository](https://github.com/YuhtPham/MessHub/issues)
+- Mô tả chi tiết vấn đề và bước tái hiện
+
+---
+
+## Lưu ý bảo mật
+
+- **Mật khẩu lock app**: Được mã hóa bằng PBKDF2 (120,000 iterations, SHA256).
+- **Session riêng biệt**: Mỗi profile dùng partition riêng, tránh chia sẻ cookies/cache.
+- **Proxy**: Hỗ trợ proxy với xác thực username/password.
+- **Không lưu mật khẩu**: App không lưu trữ mật khẩu nền tảng (chỉ session browser).
+
+---
+
+## Roadmap & TODO
+
+- [ ] Tối ưu hiệu suất cho 50+ profiles
+- [ ] Hỗ trợ database backend (Prisma + SQLite)
+- [ ] Campaign automation cho Zalo
+- [ ] CRM đơn giản
+- [ ] AI rewrite tin nhắn
+- [ ] Webhooks & integrations
+- [ ] Mobile app (React Native)
+
+---
+
+## Credits
+
+Được xây dựng với ❤️ bằng Electron & Chromium
