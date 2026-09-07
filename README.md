@@ -7,12 +7,6 @@
 <p align="center">
   <strong>9Meta</strong> — ứng dụng desktop quản lý đa tài khoản Zalo, Messenger, Fanpage, Telegram, WhatsApp và các nền tảng chat phổ biến.
 </p>
-
-<p align="center">
-  <a href="https://t.me/tiodev71">💬 Telegram</a> ·
-  <a href="https://www.facebook.com/tiodev71/">📘 Facebook</a>
-</p>
-
 ---
 
 ## Giới thiệu
