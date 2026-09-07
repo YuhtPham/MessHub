@@ -327,17 +327,6 @@ Lần đầu khóa app, bạn sẽ được yêu cầu tạo mật khẩu.
 - electron-builder
 - electron-updater
 
----
-
-## Tác giả
-
-**Nguyễn Đình Thọ / Tiodev71**
-
-- Telegram: <https://t.me/tiodev71>
-- Facebook: <https://www.facebook.com/tiodev71/>
-
----
-
 ## License
 
 MIT
