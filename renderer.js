@@ -33,6 +33,8 @@ let hasLockPassword = false;
 let isDarkMode = true;
 let editingProfile = null;
 let tempAvatarPath = null;
+let draggedProfileId = null;
+let suppressProfileClickUntil = 0;
 
 function normalizeWorkspaceData(data = {}) {
   return {
@@ -111,31 +113,157 @@ function migrateLegacyProfiles() {
 
 function renderSidebar() {
   profilesList.innerHTML = '';
+
   profiles.forEach((p) => {
     const btn = document.createElement('div');
+
     btn.className = `profile-btn ${p.id === activeProfileId ? 'active' : ''}`;
     btn.title = `${p.name} (${p.platform || 'zalo'})`;
+    btn.dataset.profileId = p.id;
+    btn.draggable = !appLocked;
+
     const span = document.createElement('span');
     span.innerText = p.avatar ? '' : platformIcon(p.platform);
+
     if (p.avatar) {
       const img = document.createElement('img');
-      img.src = p.avatar.startsWith('http') ? p.avatar : `file://${String(p.avatar).replace(/\\/g, '/')}`;
-      img.style.cssText = 'width:100%;height:100%;border-radius:inherit;object-fit:cover;position:absolute;inset:0;';
+
+      img.src = p.avatar.startsWith('http')
+        ? p.avatar
+        : `file://${String(p.avatar).replace(/\\/g, '/')}`;
+
+      img.style.cssText =
+        'width:100%;height:100%;border-radius:inherit;object-fit:cover;position:absolute;inset:0;pointer-events:none;';
+
       btn.appendChild(img);
-    } else btn.appendChild(span);
+    } else {
+      btn.appendChild(span);
+    }
+
     const badge = document.createElement('div');
+
     badge.className = 'badge';
     badge.id = `badge-${p.id}`;
     badge.innerText = '0';
+
     btn.appendChild(badge);
-    btn.onclick = () => !appLocked && switchProfile(p.id);
-    btn.oncontextmenu = (e) => { e.preventDefault(); if (!appLocked) openModal(p); };
+
+    btn.onclick = () => {
+      if (Date.now() < suppressProfileClickUntil) return;
+      if (!appLocked) switchProfile(p.id);
+    };
+
+    btn.oncontextmenu = (e) => {
+      e.preventDefault();
+      if (!appLocked) openModal(p);
+    };
+
+    btn.addEventListener('dragstart', (e) => {
+      if (appLocked) {
+        e.preventDefault();
+        return;
+      }
+
+      draggedProfileId = p.id;
+      suppressProfileClickUntil = Date.now() + 500;
+
+      btn.classList.add('dragging');
+
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', p.id);
+    });
+
+    btn.addEventListener('dragend', () => {
+      draggedProfileId = null;
+      suppressProfileClickUntil = Date.now() + 300;
+
+      btn.classList.remove('dragging');
+
+      profilesList
+        .querySelectorAll('.profile-btn')
+        .forEach((item) => item.classList.remove('drag-over'));
+    });
+
+    btn.addEventListener('dragover', (e) => {
+      if (appLocked || !draggedProfileId || draggedProfileId === p.id) return;
+
+      e.preventDefault();
+
+      const rect = btn.getBoundingClientRect();
+      const insertBefore = e.clientY < rect.top + rect.height / 2;
+
+      const dragged = profilesList.querySelector(
+        `[data-profile-id="${CSS.escape(draggedProfileId)}"]`
+      );
+
+      if (!dragged || dragged === btn) return;
+
+      profilesList
+        .querySelectorAll('.profile-btn')
+        .forEach((item) => item.classList.remove('drag-over'));
+
+      btn.classList.add('drag-over');
+
+      if (insertBefore) {
+        if (dragged.nextSibling !== btn) {
+          profilesList.insertBefore(dragged, btn);
+        }
+      } else {
+        if (btn.nextSibling !== dragged) {
+          profilesList.insertBefore(dragged, btn.nextSibling);
+        }
+      }
+    });
+
+    btn.addEventListener('drop', (e) => {
+      if (appLocked || !draggedProfileId) return;
+
+      e.preventDefault();
+
+      const orderedIds = Array.from(
+        profilesList.querySelectorAll('.profile-btn')
+      ).map((item) => item.dataset.profileId);
+
+      const profileMap = new Map(
+        profiles.map((profile) => [profile.id, profile])
+      );
+
+      profiles = orderedIds
+        .map((id) => profileMap.get(id))
+        .filter(Boolean);
+
+      persistWorkspace();
+
+      trackEvent('profile_reordered', {
+        id: draggedProfileId,
+        order: profiles.map((profile) => profile.id)
+      });
+
+      suppressProfileClickUntil = Date.now() + 500;
+
+      profilesList
+        .querySelectorAll('.profile-btn')
+        .forEach((item) => {
+          item.classList.remove('drag-over', 'dragging');
+        });
+    });
+
     profilesList.appendChild(btn);
   });
 }
+
 function switchProfile(id) {
   activeProfileId = id;
-  renderSidebar();
+  
+  // Chỉ update class active mà không render lại toàn bộ sidebar
+  profilesList.querySelectorAll('.profile-btn').forEach((btn) => {
+    if (btn.dataset.profileId === id) {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
+  });
+  
   const profile = getActiveProfile();
   if (profile) ipcRenderer.send('switch-profile', profile);
 }
@@ -161,6 +289,17 @@ function updateAvatarPreview() {
     avatarLetter.style.display = 'block';
     avatarLetter.innerText = platformIcon(platformInput.value || 'zalo');
   }
+}
+
+function addQuickReplyFromInput() {
+  const input = document.getElementById('quick-reply-input');
+  const text = input.value.trim();
+  if (!text) return;
+  if (!workspaceData.quickReplies) workspaceData.quickReplies = [];
+  workspaceData.quickReplies.push({ id: String(Date.now()), text });
+  input.value = '';
+  persistWorkspace();
+  renderQuickReplies();
 }
 
 function renderWorkspaces() {

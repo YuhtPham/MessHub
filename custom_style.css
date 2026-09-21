@@ -118,4 +118,20 @@ select option {
   box-shadow: -10px 0 40px rgba(0, 0, 0, 0.5) !important;
 }
 
+.profile-btn {
+  cursor: grab;
+}
 
+.profile-btn:active {
+  cursor: grabbing;
+}
+
+.profile-btn.dragging {
+  opacity: 0.45;
+  transform: scale(0.95);
+}
+
+.profile-btn.drag-over {
+  transform: translateY(-3px);
+  box-shadow: 0 -3px 0 rgba(255, 255, 255, 0.8);
+}

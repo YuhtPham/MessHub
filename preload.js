@@ -69,33 +69,179 @@ function runInjection(currentSettings) {
         return false;
       }
 
-      var originalFetch = window.fetch;
-      window.fetch = function() {
-        var args = arguments;
-        var url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url ? args[0].url : '');
-        if (shouldBlockSeen(url) || shouldBlockTyping(url)) return Promise.resolve(new Response(JSON.stringify({error:0,msg:'Blocked by MessHub'}), { status: 200 }));
-        return originalFetch.apply(this, args);
-      };
-      var originalXHROpen = XMLHttpRequest.prototype.open;
-      var originalXHRSend = XMLHttpRequest.prototype.send;
-      XMLHttpRequest.prototype.open = function(method, url) { this._url = typeof url === 'string' ? url : (url ? url.toString() : ''); return originalXHROpen.apply(this, arguments); };
-      XMLHttpRequest.prototype.send = function() {
-        var url = this._url || '';
-        if (shouldBlockSeen(url) || shouldBlockTyping(url)) {
-          Object.defineProperty(this, 'readyState', {get:function(){return 4;}});
-          Object.defineProperty(this, 'status', {get:function(){return 200;}});
-          Object.defineProperty(this, 'responseText', {get:function(){return '{"error":0}';}});
-          if (this.onreadystatechange) this.onreadystatechange();
-          if (this.onload) this.onload();
-          return;
-        }
-        return originalXHRSend.apply(this, arguments);
-      };
-      var originalWSSend = WebSocket.prototype.send;
-      WebSocket.prototype.send = function(data) {
-        if (shouldDropPayload(data)) return;
-        return originalWSSend.call(this, data);
-      };
+            // ========================================================
+            // NETWORK BLOCKING — PERFORMANCE SAFE
+            // ========================================================
+            //
+            // Không monkey-patch WebSocket.send().
+            //
+            // Messenger/Facebook sử dụng WebSocket rất thường xuyên.
+            // Việc scan từng payload WebSocket để tìm:
+            //   typing
+            //   composing
+            //   read
+            //   receipt
+            //
+            // có thể tạo CPU spike khi có nhiều message/event.
+            //
+            // Seen/typing vẫn được xử lý bằng Electron webRequest
+            // trong main.js.
+            // ========================================================
+
+            var messhubOriginalFetch = window.fetch;
+            var messhubOriginalXHROpen = XMLHttpRequest.prototype.open;
+            var messhubOriginalXHRSend = XMLHttpRequest.prototype.send;
+
+            function messhubShouldBlockUrl(url) {
+              if (!url) return false;
+
+              var target = String(url);
+
+              return shouldBlockSeen(target) ||
+                    shouldBlockTyping(target);
+            }
+
+            // --------------------------------------------------------
+            // FETCH
+            // --------------------------------------------------------
+            //
+            // Chỉ hook khi thực sự cần.
+            // Không làm gì thêm đối với request bình thường.
+            // --------------------------------------------------------
+            window.fetch = function() {
+              var args = arguments;
+
+              var url = '';
+
+              try {
+                if (typeof args[0] === 'string') {
+                  url = args[0];
+                } else if (
+                  args[0] &&
+                  args[0].url
+                ) {
+                  url = args[0].url;
+                }
+              } catch (_) {}
+
+              if (messhubShouldBlockUrl(url)) {
+                return Promise.resolve(
+                  new Response(
+                    JSON.stringify({
+                      error: 0,
+                      msg: 'Blocked by MessHub'
+                    }),
+                    {
+                      status: 200,
+                      headers: {
+                        'Content-Type': 'application/json'
+                      }
+                    }
+                  )
+                );
+              }
+
+              return messhubOriginalFetch.apply(this, args);
+            };
+
+            // --------------------------------------------------------
+            // XHR OPEN
+            // --------------------------------------------------------
+            XMLHttpRequest.prototype.open = function(
+              method,
+              url
+            ) {
+              try {
+                this.__messhubUrl =
+                  typeof url === 'string'
+                    ? url
+                    : (url ? url.toString() : '');
+              } catch (_) {
+                this.__messhubUrl = '';
+              }
+
+              return messhubOriginalXHROpen.apply(
+                this,
+                arguments
+              );
+            };
+
+            // --------------------------------------------------------
+            // XHR SEND
+            // --------------------------------------------------------
+            XMLHttpRequest.prototype.send = function() {
+              var url = this.__messhubUrl || '';
+
+              if (messhubShouldBlockUrl(url)) {
+                try {
+                  Object.defineProperty(
+                    this,
+                    'readyState',
+                    {
+                      configurable: true,
+                      get: function() {
+                        return 4;
+                      }
+                    }
+                  );
+
+                  Object.defineProperty(
+                    this,
+                    'status',
+                    {
+                      configurable: true,
+                      get: function() {
+                        return 200;
+                      }
+                    }
+                  );
+
+                  Object.defineProperty(
+                    this,
+                    'responseText',
+                    {
+                      configurable: true,
+                      get: function() {
+                        return '{"error":0}';
+                      }
+                    }
+                  );
+                } catch (_) {}
+
+                try {
+                  if (this.onreadystatechange) {
+                    this.onreadystatechange();
+                  }
+                } catch (_) {}
+
+                try {
+                  if (this.onload) {
+                    this.onload();
+                  }
+                } catch (_) {}
+
+                return;
+              }
+
+              return messhubOriginalXHRSend.apply(
+                this,
+                arguments
+              );
+            };
+
+      // --------------------------------------------------------
+      // QUAN TRỌNG:
+      // KHÔNG override WebSocket.prototype.send.
+      // --------------------------------------------------------
+      //
+      // WebSocket của Messenger/Facebook được giữ nguyên native.
+      //
+      // Đây là thay đổi performance quan trọng nhất.
+      // --------------------------------------------------------
+
+      console.log(
+        '[MessHub] Network protection loaded without WebSocket interception.'
+      );
 
       function applyZaDarkShield() {
         if (!window.__MessHubZaDarkShield) return;
@@ -325,7 +471,19 @@ function runInjection(currentSettings) {
           try { window.messengerApp.sendProfileInfo(info); } catch (e) { console.error('sendProfileInfo error', e); }
         }
       }
-      setInterval(extractProfileInfo, 5000);
+      let messhubProfileInfoTimer = null;
+      let messhubLastProfileInfo = '';
+
+      function messhubExtractProfileInfoThrottled() {
+        try {
+          extractProfileInfo();
+        } catch (_) {}
+      }
+
+      messhubProfileInfoTimer = setInterval(
+        messhubExtractProfileInfoThrottled,
+        10000
+      );
 
       console.log('[MessHub] Shield ready:', platform, window.__MessHubBlockSeen, window.__MessHubBlockTyping, window.__MessHubZaDarkShield);
     })();
@@ -356,27 +514,147 @@ ipcRenderer.on('update-quick-replies', (event, replies) => {
 // ============================================================
 // TỰ ĐỘNG QUÉT SỐ TIN NHẮN CHƯA ĐỌC ĐỂ GỘP THÔNG BÁO
 // ============================================================
-setInterval(() => {
+// ============================================================
+// UNREAD BADGE MONITOR — LOW CPU
+// ============================================================
+
+let messhubLastBadgeCount = -1;
+let messhubBadgeTimer = null;
+
+function messhubGetUnreadCount() {
   try {
     const title = document.title || '';
-    const match = title.match(/\((\d+)\)/); // Tìm định dạng số nằm trong dấu ngoặc (X)
-    let count = match ? parseInt(match[1], 10) : 0;
 
-    // Quét bổ sung bằng lớp giao diện (DOM Fallback) nếu tiêu đề chưa cập nhật kịp
+    // ----------------------------------------------------------
+    // Ưu tiên unread count trong title.
+    // ----------------------------------------------------------
+    const match = title.match(/\((\d+)\)/);
+
+    let count = match
+      ? parseInt(match[1], 10)
+      : 0;
+
+    // ----------------------------------------------------------
+    // DOM fallback.
+    // ----------------------------------------------------------
     if (count === 0) {
-      const host = window.location.hostname || '';
+      const host =
+        window.location.hostname || '';
+
       if (host.includes('zalo.me')) {
-        const el = document.querySelector('.tab-unread, .nav__tabs__item .badge');
-        if (el) count = parseInt(el.innerText, 10) || 0;
-      } else if (host.includes('messenger.com') || host.includes('facebook.com')) {
-        const el = document.querySelector('a[href*="messages"] span, [role="navigation"] em, ._51th');
-        if (el) count = parseInt(el.innerText, 10) || 0;
+        const el = document.querySelector(
+          '.tab-unread, .nav__tabs__item .badge'
+        );
+
+        if (el) {
+          count =
+            parseInt(
+              (el.innerText || '').trim(),
+              10
+            ) || 0;
+        }
+      }
+
+      else if (
+        host.includes('messenger.com') ||
+        host.includes('facebook.com')
+      ) {
+        const el = document.querySelector(
+          'a[href*="messages"] span, [role="navigation"] em, ._51th'
+        );
+
+        if (el) {
+          count =
+            parseInt(
+              (el.innerText || '').trim(),
+              10
+            ) || 0;
+        }
       }
     }
 
-    // Gửi số lượng tin nhắn chưa đọc của tab này về Main Process
-    ipcRenderer.send('profile-badge-updated', count);
+    return Math.max(0, count);
   } catch (e) {
-    console.error('Lỗi quét số đếm thông báo:', e);
+    return 0;
   }
-}, 4000); // Quét chu kỳ mỗi 4 giây
+}
+
+function messhubSendBadgeIfChanged() {
+  try {
+    const count =
+      messhubGetUnreadCount();
+
+    // ----------------------------------------------------------
+    // Không gửi IPC nếu count không đổi.
+    // ----------------------------------------------------------
+    if (
+      count === messhubLastBadgeCount
+    ) {
+      return;
+    }
+
+    messhubLastBadgeCount = count;
+
+    ipcRenderer.send(
+      'profile-badge-updated',
+      count
+    );
+  } catch (e) {
+    console.error(
+      '[MessHub] Badge error:',
+      e
+    );
+  }
+}
+
+// ------------------------------------------------------------
+// Chạy lần đầu.
+// ------------------------------------------------------------
+messhubSendBadgeIfChanged();
+
+// ------------------------------------------------------------
+// 6 giây thay vì 4 giây.
+//
+// Quan trọng hơn: chỉ gửi IPC khi số badge thay đổi.
+// ------------------------------------------------------------
+setInterval(
+  messhubSendBadgeIfChanged,
+  6000
+);
+
+// ------------------------------------------------------------
+// Theo dõi title.
+//
+// Messenger thường thay đổi title khi unread thay đổi.
+// MutationObserver nhẹ hơn việc liên tục scan toàn DOM.
+// ------------------------------------------------------------
+try {
+  const titleElement =
+    document.querySelector('title');
+
+  if (titleElement) {
+    const observer =
+      new MutationObserver(() => {
+        if (messhubBadgeTimer) {
+          clearTimeout(
+            messhubBadgeTimer
+          );
+        }
+
+        messhubBadgeTimer =
+          setTimeout(() => {
+            messhubBadgeTimer = null;
+            messhubSendBadgeIfChanged();
+          }, 500);
+      });
+
+    observer.observe(
+      titleElement,
+      {
+        childList: true,
+        subtree: true,
+        characterData: true
+      }
+    );
+  }
+} catch (_) {}

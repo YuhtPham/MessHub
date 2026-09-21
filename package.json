@@ -2,30 +2,30 @@
   "name": "9meta",
   "version": "1.6.1",
   "description": "MessHub - Quản lý đa tài khoản Zalo, Messenger, Fanpage, Telegram, WhatsApp...",
+
   "main": "main.js",
+
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder --linux",
+    "dev": "electron .",
+    "build": "electron-builder --linux && rm -rf dist/linux-unpacked dist/builder-effective-config.yaml",
     "build:win": "electron-builder --win",
     "build:mac": "electron-builder --mac",
     "build:portable": "electron-builder --win portable --x64"
-  },
+  }, 
+
   "build": {
     "appId": "com.tiodev.meta9",
     "productName": "MessHub",
+
     "directories": {
       "output": "dist"
     },
+
     "linux": {
       "target": [
         {
           "target": "AppImage",
-          "arch": [
-            "x64"
-          ]
-        },
-        {
-          "target": "deb",
           "arch": [
             "x64"
           ]
@@ -35,6 +35,7 @@
       "category": "Network",
       "artifactName": "${productName}-${version}-linux-${arch}.${ext}"
     },
+
     "win": {
       "target": [
         {
@@ -45,6 +46,7 @@
         }
       ]
     },
+
     "mac": {
       "target": [
         {
@@ -63,10 +65,12 @@
       "icon": "icon.png",
       "category": "public.app-category.social-networking"
     },
+
     "dmg": {
       "title": "MessHub",
       "artifactName": "MessHub-${version}-mac.${ext}"
     },
+
     "nsis": {
       "oneClick": false,
       "perMachine": false,
@@ -74,6 +78,7 @@
       "shortcutName": "MessHub",
       "artifactName": "${productName}-Setup-${version}.${ext}"
     },
+
     "files": [
       "main.js",
       "preload.js",
@@ -84,6 +89,7 @@
       "icon.png",
       "package.json"
     ],
+
     "publish": [
       {
         "provider": "github",
@@ -92,18 +98,22 @@
       }
     ]
   },
+
   "keywords": [
     "MessHub",
     "multi-account",
     "desktop",
     "electron"
   ],
+
   "author": "Tiodev71",
   "license": "MIT",
+
   "devDependencies": {
     "electron": "^29.0.0",
     "electron-builder": "^24.13.3"
   },
+
   "dependencies": {
     "electron-updater": "^6.8.3"
   }
