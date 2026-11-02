@@ -19,7 +19,6 @@ const overlayIds = [  'workspace-overlay',  'quick-replies-overlay',
 const defaultState = {
   profiles: [],
   quickReplies: [],
-  analyticsEvents: [],
 };
 
 let workspaceState = ipcRenderer.sendSync('workspace-get-state') || { currentId: 'default', workspaces: [], data: defaultState };
@@ -40,7 +39,6 @@ function normalizeWorkspaceData(data = {}) {
   return {
     profiles: Array.isArray(data.profiles) ? data.profiles : [],
     quickReplies: Array.isArray(data.quickReplies) ? data.quickReplies : [],
-    analyticsEvents: Array.isArray(data.analyticsEvents) ? data.analyticsEvents : [],
   };
 }
 function normalizeProfiles(list) {
@@ -57,11 +55,6 @@ function persistWorkspace() {
   workspaceData = normalizeWorkspaceData(workspaceState.data);
   profiles = normalizeProfiles(workspaceData.profiles);
   if (!profiles.some((p) => p.id === activeProfileId)) activeProfileId = profiles[0]?.id || null;
-}
-function trackEvent(type, payload = {}) {
-  workspaceData.analyticsEvents.unshift({ id: `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`, type, payload, createdAt: Date.now() });
-  workspaceData.analyticsEvents = workspaceData.analyticsEvents.slice(0, 120);
-  persistWorkspace();
 }
 function openOverlay(id) {
   const el = document.getElementById(id);
@@ -89,7 +82,6 @@ function closeOverlay(id) {
 function escapeHtml(s) { return String(s || '').replace(/[&<>\"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 function platformIcon(platform) { return { zalo: 'Z', telegram: '✈', messenger: 'M', fanpage: '🚩', whatsapp: 'W', teams: 'T', gmail: 'G', tiktok: '🎵' }[platform || 'zalo'] || 'A'; }function formatDate(ts) { return new Date(ts || Date.now()).toLocaleString('vi-VN'); }
 function getActiveProfile() { return profiles.find((p) => p.id === activeProfileId) || profiles[0] || null; }
-function getCurrentWorkspaceName() { return workspaceState.workspaces.find((w) => w.id === workspaceState.currentId)?.name || 'Workspace'; }
 function migrateLegacyProfiles() {
   if (workspaceData.profiles.length) return;
   try {
@@ -234,11 +226,6 @@ function renderSidebar() {
 
       persistWorkspace();
 
-      trackEvent('profile_reordered', {
-        id: draggedProfileId,
-        order: profiles.map((profile) => profile.id)
-      });
-
       suppressProfileClickUntil = Date.now() + 500;
 
       profilesList
@@ -291,17 +278,6 @@ function updateAvatarPreview() {
   }
 }
 
-function addQuickReplyFromInput() {
-  const input = document.getElementById('quick-reply-input');
-  const text = input.value.trim();
-  if (!text) return;
-  if (!workspaceData.quickReplies) workspaceData.quickReplies = [];
-  workspaceData.quickReplies.push({ id: String(Date.now()), text });
-  input.value = '';
-  persistWorkspace();
-  renderQuickReplies();
-}
-
 function renderWorkspaces() {
   const list = document.getElementById('workspace-list');
   if (!workspaceState.workspaces.length) {
@@ -322,7 +298,6 @@ function renderWorkspaces() {
       activeProfileId = profiles[0]?.id || null;
       renderAll();
       if (activeProfileId) switchProfile(activeProfileId);
-      trackEvent('workspace_switch', { workspaceId: id });
     };
   });
 }
@@ -346,7 +321,6 @@ function renderQuickReplies() {
       if (next && next.trim()) {
         workspaceData.quickReplies[index].message = next.trim();
         persistWorkspace();
-        trackEvent('quick_reply_updated', { index });
         renderQuickReplies();
       }
     };
@@ -356,7 +330,6 @@ function renderQuickReplies() {
       const index = Number(button.getAttribute('data-delete'));
       workspaceData.quickReplies.splice(index, 1);
       persistWorkspace();
-      trackEvent('quick_reply_deleted', { index });
       renderQuickReplies();
     };
   });
@@ -367,7 +340,6 @@ function addQuickReplyFromInput() {
   if (!message) return;
   workspaceData.quickReplies.push({ message });
   persistWorkspace();
-  trackEvent('quick_reply_created', { length: workspaceData.quickReplies.length });
   input.value = '';
   renderQuickReplies();
 }
@@ -409,7 +381,6 @@ function renderAll() {
 avatarPreview.onclick = () => avatarInput.click();
 avatarInput.onchange = (e) => { if (e.target.files && e.target.files[0]) { tempAvatarPath = e.target.files[0].path; updateAvatarPreview(); } };
 platformInput.addEventListener('change', updateAvatarPreview);
-nameInput.addEventListener('input', updateAvatarPreview);
 
 document.querySelectorAll('[data-close]').forEach((button) => { button.onclick = () => closeOverlay(button.getAttribute('data-close')); });
 document.getElementById('btn-add-profile').onclick = () => openModal();
@@ -422,7 +393,6 @@ document.getElementById('modal-delete').onclick = () => {
   ipcRenderer.send('delete-profile', editingProfile.id);
   activeProfileId = profiles[0]?.id || null;
   persistWorkspace();
-  trackEvent('profile_deleted', { id: editingProfile.id });
   closeOverlay('modal-overlay');
   renderAll();
   if (activeProfileId) switchProfile(activeProfileId);
@@ -435,12 +405,10 @@ document.getElementById('modal-save').onclick = () => {
     editingProfile.platform = platformInput.value;
     editingProfile.avatar = tempAvatarPath;
     ipcRenderer.send('update-profile-settings', editingProfile);
-    trackEvent('profile_updated', { id: editingProfile.id });
   } else {
     const id = String(Date.now());
     profiles.push({ id, name, avatar: tempAvatarPath, partition: `persist:nick_${id}`, platform: platformInput.value, proxy: proxyInput.value.trim() });
     activeProfileId = id;
-    trackEvent('profile_created', { id });
   }
   persistWorkspace();
   closeOverlay('modal-overlay');
@@ -476,7 +444,6 @@ document.getElementById('workspace-create-btn').onclick = () => {
   profiles = normalizeProfiles(workspaceData.profiles);
   activeProfileId = profiles[0]?.id || null;
   input.value = '';
-  trackEvent('workspace_created', { name });
   renderAll();
   if (activeProfileId) switchProfile(activeProfileId);
 };

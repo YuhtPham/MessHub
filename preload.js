@@ -471,19 +471,7 @@ function runInjection(currentSettings) {
           try { window.messengerApp.sendProfileInfo(info); } catch (e) { console.error('sendProfileInfo error', e); }
         }
       }
-      let messhubProfileInfoTimer = null;
-      let messhubLastProfileInfo = '';
-
-      function messhubExtractProfileInfoThrottled() {
-        try {
-          extractProfileInfo();
-        } catch (_) {}
-      }
-
-      messhubProfileInfoTimer = setInterval(
-        messhubExtractProfileInfoThrottled,
-        10000
-      );
+      setInterval(extractProfileInfo, 10000);
 
       console.log('[MessHub] Shield ready:', platform, window.__MessHubBlockSeen, window.__MessHubBlockTyping, window.__MessHubZaDarkShield);
     })();

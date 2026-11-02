@@ -42,7 +42,6 @@ const DEFAULT_SETTINGS = {
   autoLaunch: false,
   minimizeToTray: true,
   globalHotkey: 'Ctrl+Shift+M',
-  currentTheme: 'default',
   isDarkMode: true,
   alwaysOnTop: false,
   blockSeen: true,
@@ -75,7 +74,6 @@ const WORKSPACE_INDEX_PATH = path.join(WORKSPACES_DIR, 'index.json');
 const DEFAULT_WORKSPACE_DATA = {
   profiles: [],
   quickReplies: [],
-  analyticsEvents: [],
 };
 
 function ensureDir(dir) {
@@ -107,7 +105,6 @@ function normalizeWorkspaceData(data = {}) {
   return {
     profiles: Array.isArray(data.profiles) ? data.profiles : [],
     quickReplies: Array.isArray(data.quickReplies) ? data.quickReplies : [],
-    analyticsEvents: Array.isArray(data.analyticsEvents) ? data.analyticsEvents.slice(-500) : [],
   };
 }
 
@@ -174,18 +171,11 @@ let browserViews = {};
 let activeProfileId = null;
 let isManualUpdateCheck = false; // ✅ Khai báo trước khi sử dụng
 
-// ============================================================
-// PERFORMANCE CONTROL
-// ============================================================
-
-const INACTIVE_VIEW_THROTTLE = true;
 const NOTIFICATION_COOLDOWN_MS = 5000;
 const BADGE_DEBOUNCE_MS = 300;
 
 let badgeDebounceTimer = null;
 let lastNativeNotificationAt = 0;
-const lastProfileBadgeUpdate = {};
-
 let proxyCredentials = {};
 let appLocked = false;
 let downloads = [];
@@ -225,25 +215,6 @@ function optimizeAllBrowserViews(activeId = null) {
   }
 }
 
-function detachBrowserView(view) {
-  if (!mainWindow || !view) return;
-
-  try {
-    if (!mainWindow.isDestroyed()) {
-      mainWindow.removeBrowserView(view);
-    }
-  } catch {
-    try {
-      mainWindow.setBrowserView(null);
-    } catch {
-      // Ignore
-    }
-  }
-}
-
-// ============================================================
-// [FIX] Xóa bản trùng lặp của destroyBrowserView - chỉ giữ bản hoàn chỉnh
-// ============================================================
 function destroyBrowserView(id) {
   const view = browserViews[id];
 
@@ -267,7 +238,6 @@ function destroyBrowserView(id) {
   }
 
   delete browserViews[id];
-  delete lastProfileBadgeUpdate[id];
   delete globalProfileBadges[id]; // ✅ Thêm: Xóa badge để tránh memory leak
 
   if (activeProfileId === id) {
@@ -614,51 +584,6 @@ function toggleAutoLaunch(enable) {
 // ============================================================
 // BROWSER VIEW PERFORMANCE MANAGEMENT
 // ============================================================
-
-function throttleInactiveBrowserViews() {
-  for (const [id, view] of Object.entries(browserViews)) {
-    if (!view || view.webContents.isDestroyed()) continue;
-
-    try {
-      const isActive = id === activeProfileId;
-
-      view.webContents.setBackgroundThrottling(isActive ? false : INACTIVE_VIEW_THROTTLE);
-
-      if (!isActive && mainWindow) {
-        try {
-          if (mainWindow.getBrowserViews().includes(view)) {
-            mainWindow.removeBrowserView(view);
-          }
-        } catch (_) {
-          // Ignore
-        }
-      }
-    } catch (err) {
-      console.warn(`[Performance] Không thể throttle BrowserView ${id}:`, err.message);
-    }
-  }
-}
-
-function detachAllInactiveBrowserViews() {
-  if (!mainWindow) return;
-
-  for (const [id, view] of Object.entries(browserViews)) {
-    if (!view || view.webContents.isDestroyed()) continue;
-    if (id === activeProfileId) continue;
-
-    try {
-      mainWindow.removeBrowserView(view);
-    } catch (_) {
-      // Ignore
-    }
-
-    try {
-      view.webContents.setBackgroundThrottling(true);
-    } catch (_) {
-      // Ignore
-    }
-  }
-}
 
 function destroyInactiveBrowserViewsExcept(keepId) {
   for (const id of Object.keys(browserViews)) {

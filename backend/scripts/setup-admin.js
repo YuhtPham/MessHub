@@ -2,20 +2,25 @@
  * One-off script: Set admin password and lifetime subscription
  * Usage: node scripts/setup-admin.js
  */
+require('dotenv').config();
 const bcrypt = require('bcryptjs');
 const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 
 async function main() {
-  const ADMIN_EMAIL = 'thonguyen7106@gmail.com';
-  const NEW_PASSWORD = '07012006tho';
+  const adminEmail = process.env.ADMIN_EMAIL;
+  const newPassword = process.env.ADMIN_PASSWORD;
+
+  if (!adminEmail || !newPassword) {
+    throw new Error('Set ADMIN_EMAIL and ADMIN_PASSWORD before running this script.');
+  }
 
   // 1. Update password
-  const passwordHash = await bcrypt.hash(NEW_PASSWORD, 12);
+  const passwordHash = await bcrypt.hash(newPassword, 12);
   
   const user = await prisma.user.update({
-    where: { email: ADMIN_EMAIL },
+    where: { email: adminEmail },
     data: { passwordHash },
   });
   
@@ -75,8 +80,7 @@ async function main() {
   }
 
   console.log('\n🎉 Admin setup complete!');
-  console.log(`   Email: ${ADMIN_EMAIL}`);
-  console.log(`   Password: ${NEW_PASSWORD}`);
+  console.log(`   Email: ${adminEmail}`);
   console.log(`   Plan: Enterprise (lifetime)`);
 }
 
