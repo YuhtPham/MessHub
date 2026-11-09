@@ -1,3 +1,4 @@
+
 {
   "name": "messhub-desktop",
   "version": "1.6.1",
@@ -6,6 +7,14 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron .",
+
+    "test": "npm run test:syntax && npm run test:deps",
+    "test:syntax": "node --check src/main/index.js",
+    "test:syntax:all": "find src scripts -type f -name '*.js' -exec node --check {} \\;",
+    "test:deps": "npm ls --depth=0",
+    "test:build": "npm run build",
+    "test:all": "npm run test:syntax:all && npm run test:deps && npm run build",
+
     "build": "electron-builder --linux",
     "postbuild": "node scripts/clean-build-output.js",
     "build:win": "electron-builder --win",

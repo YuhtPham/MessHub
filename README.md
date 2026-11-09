@@ -40,6 +40,7 @@ MessHub supports web-based communication platforms including:
 - Microsoft Teams
 - Gmail
 - TikTok
+- YouTube
 
 ---
 
@@ -92,7 +93,18 @@ The desktop app runs locally and does not require a backend service.
 src/
 ├── main/                    Electron process and application lifecycle
 │   ├── index.js
-│   └── storage/              Local settings and workspace persistence
+│   ├── platforms/
+│   │   └── youtube/           YouTube runtime and player integrations
+│   │       ├── adblock.js
+│   │       ├── cdp.js
+│   │       ├── constants.js
+│   │       ├── fingerprint.js
+│   │       ├── index.js
+│   │       ├── inject.js
+│   │       ├── login.js
+│   │       ├── runtime.js
+│   │       └── ua.js
+│   └── storage/               Local settings and workspace persistence
 │       ├── json-store.js
 │       └── workspace-store.js
 ├── preload/                 Isolated bridge and messaging-site helpers

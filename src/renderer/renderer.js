@@ -9,6 +9,7 @@ const avatarPreview = document.getElementById('avatar-preview');
 const avatarImg = document.getElementById('avatar-img');
 const avatarLetter = document.getElementById('avatar-letter');
 const avatarInput = document.getElementById('avatar-input');
+const youtubeToolsButton = document.getElementById('btn-open-youtube-tools');
 
 const DEFAULT_PLATFORM = 'zalo';
 const overlayElements = Array.from(document.querySelectorAll('.overlay'));
@@ -21,6 +22,7 @@ const PLATFORM_ICONS = {
   teams: 'T',
   gmail: 'G',
   tiktok: '♪',
+  youtube: '▶',
 };
 
 const defaultState = {
@@ -285,6 +287,7 @@ function switchProfile(profileId) {
   });
 
   const profile = getActiveProfile();
+  youtubeToolsButton.hidden = profile?.platform !== 'youtube';
   if (profile) ipcRenderer.send('switch-profile', profile);
 }
 function openModal(profileToEdit = null) {
@@ -453,6 +456,99 @@ function renderUpdate() {
   document.getElementById('update-install').hidden = updateState.status !== 'downloaded';
 }
 
+function getActiveYoutubeProfile() {
+  const profile = getActiveProfile();
+  return profile?.platform === 'youtube' ? profile : null;
+}
+
+function renderYoutubeStats(stats) {
+  const output = document.getElementById('youtube-stats');
+  if (!stats) {
+    output.textContent = 'Không phát hiện video đang chạy.';
+    return;
+  }
+
+  const formatTime = (seconds) => {
+    if (!Number.isFinite(seconds)) return '—';
+    const minutes = Math.floor(seconds / 60);
+    const remainder = Math.floor(seconds % 60).toString().padStart(2, '0');
+    return `${minutes}:${remainder}`;
+  };
+
+  output.textContent = [
+    stats.title || 'YouTube',
+    `Thời lượng: ${formatTime(stats.time)} / ${formatTime(stats.dur)}`,
+    `Tốc độ: ${stats.rate || 1}× · Chất lượng: ${stats.quality || 'tự động'}`,
+    `Thích: ${stats.likes ?? '—'} · Không thích: ${stats.dislikes ?? '—'}`,
+  ].join('\n');
+}
+
+async function refreshYoutubeStatus() {
+  const profile = getActiveYoutubeProfile();
+  if (!profile) return;
+
+  const statusElement = document.getElementById('youtube-status');
+  statusElement.textContent = 'Đang kiểm tra trạng thái YouTube…';
+
+  try {
+    const state = await ipcRenderer.invoke('youtube:get-status', profile.id);
+    if (getActiveYoutubeProfile()?.id !== profile.id) return;
+    if (!state) {
+      statusElement.textContent = 'Phiên YouTube chưa sẵn sàng.';
+      return;
+    }
+
+    const signInStatus = state.ready
+      ? state.signedIn ? 'Đã đăng nhập Google.' : 'Chưa đăng nhập Google.'
+      : 'Đang khởi tạo phiên YouTube…';
+    const adBlockStatus = !state.blockingEnabled
+      ? 'Bộ lọc quảng cáo đang tắt.'
+      : state.blockingActive
+        ? 'Bộ lọc quảng cáo đang hoạt động.'
+        : 'Bộ lọc quảng cáo chưa kích hoạt.';
+    statusElement.textContent = `${signInStatus} ${adBlockStatus}`;
+    document.getElementById('youtube-blocking').checked = state.blockingEnabled;
+    document.getElementById('youtube-sponsor-block').checked = state.sponsorBlockEnabled;
+    document.getElementById('youtube-background-playback').checked = state.backgroundPlayback;
+    document.getElementById('youtube-quality').value = state.quality || 'auto';
+  } catch (error) {
+    if (getActiveYoutubeProfile()?.id !== profile.id) return;
+    statusElement.textContent = error.message || 'Không đọc được trạng thái YouTube.';
+  }
+}
+
+async function runYoutubeAction(action, value) {
+  const profile = getActiveYoutubeProfile();
+  if (!profile) return null;
+
+  const statusElement = document.getElementById('youtube-status');
+  try {
+    const result = await ipcRenderer.invoke('youtube:run-action', profile.id, action, value);
+    const settingKeys = {
+      'set-blocking': 'blockingEnabled',
+      'set-sponsor-block': 'sponsorBlockEnabled',
+      'set-background-playback': 'backgroundPlayback',
+      'set-quality': 'quality',
+    };
+    const settingKey = settingKeys[action];
+    const currentProfile = profiles.find((entry) => entry.id === profile.id);
+    if (settingKey && currentProfile) {
+      currentProfile.youtubeSettings = { ...currentProfile.youtubeSettings, [settingKey]: result };
+      persistWorkspace();
+    }
+    if (getActiveYoutubeProfile()?.id !== profile.id) return result;
+
+    if (action === 'stats') renderYoutubeStats(result);
+    await refreshYoutubeStatus();
+    if (action === 'import-cookies') statusElement.textContent = `Đã nạp ${result} cookie hợp lệ.`;
+    return result;
+  } catch (error) {
+    if (getActiveYoutubeProfile()?.id !== profile.id) return null;
+    statusElement.textContent = error.message || 'Không thực hiện được thao tác YouTube.';
+    return null;
+  }
+}
+
 function renderAll() {
   renderSidebar();
   renderWorkspaces();
@@ -533,6 +629,59 @@ reloadButton.onclick = () => {
 document.getElementById('btn-open-downloads').onclick = () => openOverlay('downloads-overlay');
 document.getElementById('btn-open-workspaces').onclick = () => openOverlay('workspace-overlay');
 document.getElementById('btn-open-quick-replies').onclick = () => openOverlay('quick-replies-overlay');
+youtubeToolsButton.onclick = () => {
+  openOverlay('youtube-tools-overlay');
+  refreshYoutubeStatus();
+};
+
+document.getElementById('youtube-login').onclick = () => {
+  const profile = getActiveYoutubeProfile();
+  if (profile) ipcRenderer.send('youtube:open-login', profile.id);
+};
+document.getElementById('youtube-sign-out').onclick = () => {
+  if (confirm('Đăng xuất khỏi YouTube trên profile này?')) runYoutubeAction('sign-out');
+};
+document.getElementById('youtube-blocking').addEventListener('change', (event) => {
+  runYoutubeAction('set-blocking', event.target.checked);
+});
+document.getElementById('youtube-sponsor-block').addEventListener('change', (event) => {
+  runYoutubeAction('set-sponsor-block', event.target.checked);
+});
+document.getElementById('youtube-background-playback').addEventListener('change', (event) => {
+  runYoutubeAction('set-background-playback', event.target.checked);
+});
+document.getElementById('youtube-quality-apply').onclick = () => {
+  runYoutubeAction('set-quality', document.getElementById('youtube-quality').value);
+};
+document.getElementById('youtube-pip').onclick = () => runYoutubeAction('pip');
+document.getElementById('youtube-refresh-stats').onclick = () => runYoutubeAction('stats');
+document.getElementById('youtube-cookie-file').addEventListener('change', async (event) => {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  try {
+    const parsed = JSON.parse(await file.text());
+    const cookies = Array.isArray(parsed) ? parsed : parsed.cookies;
+    if (!Array.isArray(cookies)) throw new Error('File JSON không chứa danh sách cookie.');
+    await runYoutubeAction('import-cookies', cookies);
+  } catch (error) {
+    document.getElementById('youtube-status').textContent = error.message || 'Không đọc được file cookie.';
+  } finally {
+    event.target.value = '';
+  }
+});
+
+ipcRenderer.on('youtube:login-result', (_event, result) => {
+  if (result.profileId !== activeProfileId) return;
+  document.getElementById('youtube-status').textContent = result.rejected
+    ? 'Google từ chối đăng nhập trong cửa sổ này.'
+    : 'Đã đóng cửa sổ đăng nhập.';
+  refreshYoutubeStatus();
+});
+
+ipcRenderer.on('youtube:runtime-ready', (_event, profileId) => {
+  if (profileId === activeProfileId) refreshYoutubeStatus();
+});
 
 document.getElementById('workspace-create-btn').onclick = () => {
   const input = document.getElementById('workspace-name-input');

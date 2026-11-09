@@ -175,6 +175,7 @@ body.light-mode #sidebar { background: rgba(249, 251, 255, 0.98); }
 }
 
 .sidebar-action svg { width: 19px; height: 19px; }
+#btn-open-youtube-tools[hidden] { display: none; }
 
 .overlay {
   position: fixed;
@@ -290,6 +291,41 @@ body.light-mode #sidebar { background: rgba(249, 251, 255, 0.98); }
 .compact-input { margin-top: 0; }
 .compact-textarea { min-height: 72px; margin-top: 0; }
 #lock-overlay h2 { margin-top: 0; }
+
+.youtube-settings {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-soft);
+}
+
+.youtube-setting-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.youtube-setting-row input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
+.youtube-stats {
+  min-height: 72px;
+  overflow-wrap: anywhere;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--muted);
+  background: var(--surface-soft);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+#youtube-quality { width: auto; min-width: 140px; flex: 1; }
+.youtube-controls { flex-wrap: wrap; justify-content: flex-start; }
 
 .download-item,
 .workspace-item {

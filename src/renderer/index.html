@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="MessHub - Quản lý đa tài khoản Zalo, Messenger, Fanpage, Telegram, WhatsApp trên Desktop.">
+  <meta name="description" content="MessHub - Quản lý đa tài khoản Zalo, Messenger, YouTube và các nền tảng khác trên desktop.">
   <title>MessHub Client</title>
   <link rel="stylesheet" href="styles/app.css">
 </head>
@@ -39,6 +39,11 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 11.5a8.5 8.5 0 0 1-12.8 7.3L3 20l1.2-4.5A8.5 8.5 0 1 1 21 11.5z"></path>
           <path d="M8 11h8M8 14h5"></path>
+        </svg>
+      </button>
+      <button type="button" class="sidebar-action" id="btn-open-youtube-tools" title="Công cụ YouTube" aria-label="Công cụ YouTube" hidden>
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8ZM9.6 15.6V8.4l6.2 3.6-6.2 3.6Z"></path>
         </svg>
       </button>
       <button type="button" class="sidebar-action" id="btn-open-downloads" title="Tải xuống" aria-label="Tải xuống">
@@ -102,6 +107,7 @@
         <option value="whatsapp">💚 WhatsApp</option>
         <option value="teams">🟣 Microsoft Teams</option>
         <option value="gmail">📧 Google / Gmail</option>
+        <option value="youtube">▶️ YouTube</option>
       </select>
       <div class="row modal-actions">
         <button type="button" class="modal-btn warn" id="modal-delete" hidden>Xóa</button>
@@ -136,6 +142,46 @@
         <button type="button" class="modal-btn cancel" data-close="downloads-overlay">Đóng</button>
       </div>
       <div id="downloads-list" class="list-scroll mt-12"></div>
+    </div>
+  </div>
+
+  <div id="youtube-tools-overlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="youtube-tools-title">
+    <div class="panel-box mid">
+      <div class="panel-head">
+        <h3 id="youtube-tools-title" class="panel-title">Công cụ YouTube</h3>
+        <button type="button" class="modal-btn cancel" data-close="youtube-tools-overlay">Đóng</button>
+      </div>
+      <p id="youtube-status" class="download-meta">Đang kết nối với YouTube…</p>
+      <div class="row mb-16">
+        <button type="button" id="youtube-login" class="modal-btn save">Đăng nhập Google</button>
+        <button type="button" id="youtube-sign-out" class="modal-btn cancel">Đăng xuất</button>
+      </div>
+      <div class="youtube-settings">
+        <label class="youtube-setting-row"><input type="checkbox" id="youtube-blocking"> Chặn quảng cáo</label>
+        <label class="youtube-setting-row"><input type="checkbox" id="youtube-sponsor-block"> Tự bỏ qua đoạn tài trợ</label>
+        <label class="youtube-setting-row"><input type="checkbox" id="youtube-background-playback"> Phát âm thanh khi chuyển tài khoản</label>
+      </div>
+      <div class="row mt-12 youtube-controls">
+        <select id="youtube-quality" class="modal-select compact-input" aria-label="Chất lượng video">
+          <option value="auto">Chất lượng tự động</option>
+          <option value="hd2160">2160p</option>
+          <option value="hd1440">1440p</option>
+          <option value="hd1080">1080p</option>
+          <option value="hd720">720p</option>
+          <option value="large">480p</option>
+          <option value="medium">360p</option>
+          <option value="small">240p</option>
+        </select>
+        <button type="button" id="youtube-quality-apply" class="modal-btn cancel">Áp dụng</button>
+        <button type="button" id="youtube-pip" class="modal-btn cancel">Cửa sổ nổi</button>
+      </div>
+      <div class="panel-head mt-12">
+        <strong>Thông tin video</strong>
+        <button type="button" id="youtube-refresh-stats" class="modal-btn cancel">Làm mới</button>
+      </div>
+      <pre id="youtube-stats" class="youtube-stats">Chưa có dữ liệu video.</pre>
+      <label class="download-meta" for="youtube-cookie-file">Nạp cookie JSON (tùy chọn)</label>
+      <input type="file" id="youtube-cookie-file" class="modal-input" accept=".json,application/json">
     </div>
   </div>
 

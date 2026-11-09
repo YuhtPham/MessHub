@@ -23,6 +23,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const { readJson, writeJson } = require('./storage/json-store');
 const { WorkspaceStore } = require('./storage/workspace-store');
+const { YouTubeRuntime } = require('./platforms/youtube');
 
 const APP_ROOT = path.resolve(__dirname, '../..');
 const APP_ICON_PATH = path.join(APP_ROOT, 'assets/icons/app-icon.png');
@@ -34,6 +35,16 @@ const WINDOWS_APP_USER_MODEL_ID = 'com.tiodev.meta9';
 const USER_DATA_DIRECTORY_NAME = 'MessHub';
 const SIDEBAR_WIDTH = 76;
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
+const PERSISTENT_COOKIE_DOMAINS = [
+  'zalo.me',
+  'messenger.com',
+  'facebook.com',
+  'whatsapp.com',
+  'telegram.org',
+  'tiktok.com',
+  'youtube.com',
+  'google.com',
+];
 
 // Keep settings and browser sessions in the existing directory after changing the packaged product name.
 app.setName(USER_DATA_DIRECTORY_NAME);
@@ -89,6 +100,7 @@ const workspaceStore = new WorkspaceStore(
 );
 let isQuitting = false;
 let browserViews = {};
+const youtubeRuntimes = new Map();
 let activeProfileId = null;
 let isManualUpdateCheck = false;
 
@@ -108,10 +120,14 @@ function getBrowserView(id) {
 
   try {
     if (view.webContents.isDestroyed()) {
+      youtubeRuntimes.get(id)?.destroy();
+      youtubeRuntimes.delete(id);
       delete browserViews[id];
       return null;
     }
   } catch {
+    youtubeRuntimes.get(id)?.destroy();
+    youtubeRuntimes.delete(id);
     delete browserViews[id];
     return null;
   }
@@ -123,8 +139,10 @@ function optimizeBrowserView(view, active = false) {
   if (!view || !view.webContents || view.webContents.isDestroyed()) return;
 
   try {
-    view.webContents.setBackgroundThrottling(!active);
-    view.webContents.audioMuted = !active;
+    const keepPlayingInBackground = view.youtubeBackgroundPlayback === true;
+    const shouldRun = active || keepPlayingInBackground;
+    view.webContents.setBackgroundThrottling(!shouldRun);
+    view.webContents.setAudioMuted(!shouldRun);
   } catch {
     // Ignore errors
   }
@@ -140,6 +158,9 @@ function destroyBrowserView(id) {
   const view = browserViews[id];
 
   if (!view) return;
+
+  youtubeRuntimes.get(id)?.destroy();
+  youtubeRuntimes.delete(id);
 
   try {
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -177,6 +198,7 @@ function destroyAllBrowserViews() {
 
   for (const id of Object.keys(browserViews)) {
     const view = browserViews[id];
+    youtubeRuntimes.get(id)?.destroy();
 
     try {
       if (view.webContents && !view.webContents.isDestroyed()) {
@@ -189,6 +211,7 @@ function destroyAllBrowserViews() {
   }
 
   browserViews = {};
+  youtubeRuntimes.clear();
   activeProfileId = null;
 }
 
@@ -537,6 +560,13 @@ function updateBrowserViewBounds() {
 }
 
 function isInternalUrl(url) {
+  let hostname;
+  try {
+    hostname = new URL(url).hostname.toLowerCase().replace(/\.$/, '');
+  } catch {
+    return false;
+  }
+
   return [
     'chat.zalo.me',
     'id.zalo.me',
@@ -554,7 +584,17 @@ function isInternalUrl(url) {
     'telegram.org',
     't.me',
     'tiktok.com',
-  ].some((d) => url.includes(d));
+    'youtube.com',
+    'youtube-nocookie.com',
+    'youtubei.googleapis.com',
+    'googlevideo.com',
+    'ytimg.com',
+    'youtu.be',
+  ].some((domain) => matchesDomain(hostname, domain));
+}
+
+function matchesDomain(hostname, domain) {
+  return hostname === domain || hostname.endsWith(`.${domain}`);
 }
 
 function setupWebContents(contents) {
@@ -642,6 +682,7 @@ function setupWebContents(contents) {
       else if (host.includes('zalo.me')) platformClass = 'platform-zalo';
       else if (host.includes('whatsapp.com')) platformClass = 'platform-whatsapp';
       else if (host.includes('tiktok.com')) platformClass = 'platform-tiktok';
+      else if (host.includes('youtube.com')) platformClass = 'platform-youtube';
 
       contents.insertCSS('html { color-scheme: dark; }');
       contents.executeJavaScript(`document.documentElement.classList.add('${platformClass}');`, true).catch(() => {});
@@ -757,6 +798,15 @@ function setupDownloads(sess) {
   });
 }
 
+function persistYoutubeSettings(profileId, patch) {
+  const workspace = workspaceStore.getState();
+  const profile = workspace.data.profiles.find((entry) => entry.id === profileId);
+  if (!profile || profile.platform !== 'youtube') return;
+
+  profile.youtubeSettings = { ...profile.youtubeSettings, ...patch };
+  workspaceStore.saveCurrentData(workspace.data);
+}
+
 function createWindow() {
   const { windowBounds } = settings;
   mainWindow = new BrowserWindow({
@@ -780,11 +830,8 @@ function createWindow() {
     setupDownloads(sess);
 
     sess.cookies.on('changed', (event, cookie, cause, removed) => {
-      const domainMatch =
-        cookie.domain &&
-        ['zalo.me', 'messenger.com', 'facebook.com', 'whatsapp.com', 'telegram.org', 'tiktok.com'].some(
-          (d) => cookie.domain.includes(d)
-        );
+      const cookieDomain = (cookie.domain || '').toLowerCase().replace(/^\./, '');
+      const domainMatch = PERSISTENT_COOKIE_DOMAINS.some((domain) => matchesDomain(cookieDomain, domain));
       if (!removed && cookie.session && domainMatch) {
         const prefix = cookie.domain.startsWith('.') ? 'www' : '';
         sess.cookies
@@ -873,6 +920,63 @@ function createWindow() {
   // IPC HANDLERS
   // ============================================================
 
+  ipcMain.removeHandler('youtube:get-status');
+  ipcMain.removeHandler('youtube:run-action');
+  ipcMain.removeAllListeners('youtube:open-login');
+  ipcMain.handle('youtube:get-status', async (_event, profileId) => {
+    return youtubeRuntimes.get(profileId)?.getStatus() || null;
+  });
+
+  ipcMain.handle('youtube:run-action', async (_event, profileId, action, value) => {
+    const runtime = youtubeRuntimes.get(profileId);
+    if (!runtime) throw new Error('Profile YouTube chưa sẵn sàng.');
+
+    switch (action) {
+      case 'set-blocking': {
+        const enabled = await runtime.setBlocking(value);
+        persistYoutubeSettings(profileId, { blockingEnabled: enabled });
+        return enabled;
+      }
+      case 'set-sponsor-block': {
+        const enabled = await runtime.setSponsorBlock(value);
+        persistYoutubeSettings(profileId, { sponsorBlockEnabled: enabled });
+        return enabled;
+      }
+      case 'set-background-playback': {
+        const enabled = runtime.setBackgroundPlayback(value);
+        persistYoutubeSettings(profileId, { backgroundPlayback: enabled });
+        return enabled;
+      }
+      case 'set-quality': {
+        const allowedQualities = new Set(['auto', 'highres', 'hd2160', 'hd1440', 'hd1080', 'hd720', 'large', 'medium', 'small']);
+        if (!allowedQualities.has(value)) throw new Error('Chất lượng video không hợp lệ.');
+        const quality = await runtime.setQuality(value);
+        persistYoutubeSettings(profileId, { quality });
+        return quality;
+      }
+      case 'pip':
+        return runtime.pip();
+      case 'stats':
+        return runtime.stats();
+      case 'import-cookies':
+        if (!Array.isArray(value) || value.length > 5000) throw new Error('Danh sách cookie không hợp lệ.');
+        return runtime.importCookies(value);
+      case 'sign-out':
+        return runtime.signOut();
+      default:
+        throw new Error('Thao tác YouTube không được hỗ trợ.');
+    }
+  });
+
+  ipcMain.on('youtube:open-login', (_event, profileId) => {
+    const runtime = youtubeRuntimes.get(profileId);
+    if (!runtime) return;
+
+    runtime.openLogin()
+      .then((result) => sendToRenderer('youtube:login-result', { profileId, ...result }))
+      .catch((error) => console.error('[YouTube] Login failed:', error.message));
+  });
+
   ipcMain.on('switch-profile', (event, profile) => {
     if (appLocked || !profile || !profile.id) return;
 
@@ -891,6 +995,7 @@ function createWindow() {
       });
 
       browserViews[profile.id] = view;
+      view.profilePlatform = profile.platform;
       setupWebContents(view.webContents);
 
       const sess = session.fromPartition(profile.partition);
@@ -916,25 +1021,46 @@ function createWindow() {
         sess.setProxy({ proxyRules: 'direct://' }).catch(() => {});
       }
 
-      let url = ZALO_URL;
+      const platformUrls = {
+        messenger: 'https://www.messenger.com/',
+        fanpage: 'https://www.facebook.com/latest/inbox/',
+        whatsapp: 'https://web.whatsapp.com/',
+        teams: 'https://teams.microsoft.com/',
+        gmail: 'https://mail.google.com/',
+        telegram: 'https://web.telegram.org/a/',
+        tiktok: 'https://www.tiktok.com/',
+        youtube: 'https://www.youtube.com/',
+      };
+      const url = platformUrls[profile.platform] || ZALO_URL;
 
-      if (profile.platform === 'messenger') {
-        url = 'https://www.messenger.com/';
-      } else if (profile.platform === 'fanpage') {
-        url = 'https://www.facebook.com/latest/inbox/';
-      } else if (profile.platform === 'whatsapp') {
-        url = 'https://web.whatsapp.com/';
-      } else if (profile.platform === 'teams') {
-        url = 'https://teams.microsoft.com/';
-      } else if (profile.platform === 'gmail') {
-        url = 'https://mail.google.com/';
-      } else if (profile.platform === 'telegram') {
-        url = 'https://web.telegram.org/a/';
-      } else if (profile.platform === 'tiktok') {
-        url = 'https://www.tiktok.com/';
+      if (profile.platform === 'youtube') {
+        const youtubeSettings = profile.youtubeSettings || {};
+        const youtubeRuntime = new YouTubeRuntime(view.webContents, sess, {
+          backgroundPlayback: youtubeSettings.backgroundPlayback === true,
+          blockingEnabled: youtubeSettings.blockingEnabled !== false,
+          sponsorBlockEnabled: youtubeSettings.sponsorBlockEnabled !== false,
+          quality: youtubeSettings.quality,
+          onBackgroundPlaybackChange: (enabled) => {
+            view.youtubeBackgroundPlayback = enabled;
+            optimizeBrowserView(view, activeProfileId === profile.id);
+          },
+        });
+        youtubeRuntimes.set(profile.id, youtubeRuntime);
+        youtubeRuntime.readyPromise
+          .then((ready) => {
+            if (ready) sendToRenderer('youtube:runtime-ready', profile.id);
+          })
+          .catch((error) => {
+            console.error('[YouTube] Could not initialize player:', error.message);
+          });
+        view.webContents.loadURL(url).catch((error) => {
+          console.error('[YouTube] Could not open player:', error.message);
+        });
+      } else {
+        sess.setUserAgent(USER_AGENT);
+        view.webContents.setUserAgent(USER_AGENT);
+        view.webContents.loadURL(url, { userAgent: USER_AGENT }).catch(() => {});
       }
-
-      view.webContents.loadURL(url, { userAgent: USER_AGENT }).catch(() => {});
     }
 
     const view = getBrowserView(profile.id);
@@ -955,6 +1081,12 @@ function createWindow() {
   });
 
   ipcMain.on('update-profile-settings', (event, profile) => {
+    const existingView = browserViews[profile.id];
+    if (existingView && existingView.profilePlatform !== profile.platform) {
+      destroyBrowserView(profile.id);
+      return;
+    }
+
     const sess = session.fromPartition(profile.partition);
     if (profile.proxy) {
       let proxyRules = profile.proxy;
