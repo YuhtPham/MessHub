@@ -17,9 +17,6 @@ function buildPageInjection(currentSettings) {
       function applyZaDarkShield() {
         if (!window.__MessHubZaDarkShield) return;
         try {
-          Object.defineProperty(navigator, 'webdriver', { get: function() { return false; }, configurable: true });
-        } catch(e) {}
-        try {
           var style = document.getElementById('messhub-zadark-style');
           if (!style) {
             style = document.createElement('style');

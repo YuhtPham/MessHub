@@ -112,6 +112,7 @@ let lastNativeNotificationAt = 0;
 let proxyCredentials = {};
 let appLocked = false;
 let downloads = [];
+let browserViewBoundsUpdateTimer = null;
 let updateState = { status: 'idle', progress: 0, message: 'Sẵn sàng kiểm tra cập nhật.' };
 
 function getBrowserView(id) {
@@ -552,11 +553,15 @@ function updateBrowserViewBounds() {
     width: Math.max(bounds.width - SIDEBAR_WIDTH, 0),
     height: Math.max(bounds.height, 0),
   });
+}
 
-  view.setAutoResize({
-    width: true,
-    height: true,
-  });
+function scheduleBrowserViewBoundsUpdate(delay = 0) {
+  if (browserViewBoundsUpdateTimer) clearTimeout(browserViewBoundsUpdateTimer);
+
+  browserViewBoundsUpdateTimer = setTimeout(() => {
+    browserViewBoundsUpdateTimer = null;
+    updateBrowserViewBounds();
+  }, delay);
 }
 
 function isInternalUrl(url) {
@@ -899,8 +904,11 @@ function createWindow() {
 
   mainWindow.on('focus', () => mainWindow.flashFrame(false));
   mainWindow.on('resize', updateBrowserViewBounds);
-  mainWindow.on('maximize', updateBrowserViewBounds);
-  mainWindow.on('unmaximize', updateBrowserViewBounds);
+  mainWindow.on('maximize', () => scheduleBrowserViewBoundsUpdate(50));
+  mainWindow.on('unmaximize', () => scheduleBrowserViewBoundsUpdate(50));
+  mainWindow.on('restore', () => scheduleBrowserViewBoundsUpdate(50));
+  mainWindow.on('enter-full-screen', () => scheduleBrowserViewBoundsUpdate(50));
+  mainWindow.on('leave-full-screen', () => scheduleBrowserViewBoundsUpdate(50));
 
   mainWindow.on('close', (event) => {
     if (!isQuitting && settings.minimizeToTray) {
@@ -1057,9 +1065,18 @@ function createWindow() {
           console.error('[YouTube] Could not open player:', error.message);
         });
       } else {
-        sess.setUserAgent(USER_AGENT);
-        view.webContents.setUserAgent(USER_AGENT);
-        view.webContents.loadURL(url, { userAgent: USER_AGENT }).catch(() => {});
+        if (profile.platform === 'tiktok') {
+          // Keep TikTok on Electron's real UA instead of claiming to be a newer Chrome.
+          // This avoids a version mismatch between the advertised browser and Chromium.
+          const userAgent = app.userAgentFallback;
+          sess.setUserAgent(userAgent);
+          view.webContents.setUserAgent(userAgent);
+          view.webContents.loadURL(url).catch(() => {});
+        } else {
+          sess.setUserAgent(USER_AGENT);
+          view.webContents.setUserAgent(USER_AGENT);
+          view.webContents.loadURL(url, { userAgent: USER_AGENT }).catch(() => {});
+        }
       }
     }
 
