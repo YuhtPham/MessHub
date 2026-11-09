@@ -1,5 +1,5 @@
 // ============================================
-// Messlỏ Landing Page — Interactions
+// MessHub Website — Interactions
 // ============================================
 
 // Smooth scroll for anchor links

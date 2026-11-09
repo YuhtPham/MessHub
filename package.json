@@ -1,95 +1,73 @@
 {
-  "name": "9meta",
+  "name": "messhub-desktop",
   "version": "1.6.1",
-  "description": "MessHub - Quản lý đa tài khoản Zalo, Messenger, Fanpage, Telegram, WhatsApp...",
-
-  "main": "main.js",
-
+  "description": "MessHub desktop workspace for Zalo, Messenger, and other messaging accounts.",
+  "main": "src/main/index.js",
   "scripts": {
     "start": "electron .",
     "dev": "electron .",
-    "build": "electron-builder --linux && rm -rf dist/linux-unpacked dist/builder-effective-config.yaml",
+    "build": "electron-builder --linux",
+    "postbuild": "node scripts/clean-build-output.js",
     "build:win": "electron-builder --win",
     "build:mac": "electron-builder --mac",
     "build:portable": "electron-builder --win portable --x64"
-  }, 
-
+  },
   "build": {
     "appId": "com.tiodev.meta9",
-    "productName": "MessHub",
-
+    "productName": "MessHub Client",
     "directories": {
-      "output": "dist"
+      "output": "."
     },
-
     "linux": {
       "target": [
         {
           "target": "AppImage",
-          "arch": [
-            "x64"
-          ]
+          "arch": ["x64"]
         }
       ],
-      "icon": "icon.png",
+      "icon": "assets/icons/app-icon.png",
       "category": "Network",
       "artifactName": "${productName}-${version}-linux-${arch}.${ext}"
     },
-
     "win": {
+      "icon": "assets/icons/windows-icon.ico",
       "target": [
         {
           "target": "nsis",
-          "arch": [
-            "x64"
-          ]
+          "arch": ["x64"]
         }
       ]
     },
-
     "mac": {
       "target": [
         {
           "target": "dmg",
-          "arch": [
-            "universal"
-          ]
+          "arch": ["universal"]
         },
         {
           "target": "zip",
-          "arch": [
-            "universal"
-          ]
+          "arch": ["universal"]
         }
       ],
-      "icon": "icon.png",
+      "icon": "assets/icons/app-icon.png",
       "category": "public.app-category.social-networking"
     },
-
     "dmg": {
-      "title": "MessHub",
-      "artifactName": "MessHub-${version}-mac.${ext}"
+      "title": "MessHub Client",
+      "artifactName": "MessHub-Client-${version}-mac.${ext}"
     },
-
     "nsis": {
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
-      "shortcutName": "MessHub",
+      "shortcutName": "MessHub Client",
       "artifactName": "${productName}-Setup-${version}.${ext}"
     },
-
     "files": [
-      "main.js",
-      "preload.js",
-      "renderer.js",
-      "index.html",
-      "custom_style.css",
-      "icon.ico",
-      "icon.png",
+      "src/**/*",
+      "assets/icons/**/*",
       "package.json"
     ],
-
     "publish": [
       {
         "provider": "github",
@@ -98,22 +76,18 @@
       }
     ]
   },
-
   "keywords": [
     "MessHub",
     "multi-account",
     "desktop",
     "electron"
   ],
-
   "author": "Tiodev71",
   "license": "MIT",
-
   "devDependencies": {
     "electron": "^29.0.0",
     "electron-builder": "^24.13.3"
   },
-
   "dependencies": {
     "electron-updater": "^6.8.3"
   }

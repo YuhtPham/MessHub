@@ -4,21 +4,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dép Lào — Ứng dụng Zalo Desktop</title>
+    <title>MessHub — Không gian nhắn tin trên desktop</title>
     <meta name="description"
-        content="Ứng dụng Zalo Desktop miễn phí. Giao diện Dark Glass sang trọng, thông báo Windows, phím tắt toàn cục, chạy nền System Tray.">
-    <meta name="keywords" content="Zalo, Desktop, Windows, Electron, Facebook Zalo, ứng dụng">
+        content="MessHub gom các tài khoản nhắn tin vào một ứng dụng desktop với phiên đăng nhập riêng, workspace và công cụ thao tác nhanh.">
+    <meta name="keywords" content="MessHub, Zalo, Messenger, desktop, Electron, workspace">
     <meta name="author" content="Tiodev71">
-    <meta property="og:title" content="Dép Lào — Dép Lào Desktop">
-    <meta property="og:description" content="Ứng dụng Zalo Desktop miễn phí. Giao diện tối sang trọng, mã nguồn mở.">
-    <meta property="og:image" content="">
+    <meta property="og:title" content="MessHub — Không gian nhắn tin trên desktop">
+    <meta property="og:description" content="Quản lý nhiều tài khoản nhắn tin trong workspace desktop riêng biệt.">
+    <meta property="og:image" content="assets/app-icon.png">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-    <link rel="icon" type="image/png" href="/Users/tiodev/Downloads/Zalo/icon.png">
+    <link rel="icon" type="image/png" href="assets/app-icon.png">
     <link rel="stylesheet" href="style.css">
 </head>
 
@@ -31,17 +31,17 @@
     <nav id="navbar">
         <div class="nav-inner">
             <a href="#" class="logo">
-                <img src="" alt="Dép Lào Logo">
-                <span>Dép Lào</span>
+                <img src="assets/app-icon.png" alt="MessHub">
+                <span>MessHub</span>
             </a>
             <ul class="nav-links" id="navLinks">
-                <li><a href="#features">Tính năng</a></li>
+                <li><a href="#overview">Tổng quan</a></li>
                 <li><a href="#install">Cài đặt</a></li>
                 <li><a href="#shortcuts">Phím tắt</a></li>
                 <li><a href="#faq">FAQ</a></li>
             </ul>
             <div class="nav-actions">
-                <a href="https://github.com/Tiodev71/Deplao-App.git" class="btn-nav" target="_blank" rel="noopener">
+                <a href="https://github.com/PhamThuy1410/MessHub" class="btn-nav" target="_blank" rel="noopener">
                     <i class="fab fa-github"></i> GitHub
                 </a>
                 <button class="hamburger" id="hamburger" aria-label="Toggle menu">
@@ -52,21 +52,20 @@
     </nav>
 
     <!-- Hero Section -->
-    <section class="hero">
+    <section class="hero" id="overview">
         <div class="container">
             <div class="hero-grid">
                 <div class="hero-content">
                     <div class="version-pill">
                         <span class="pulse-dot"></span>
-                        v1.1.0 — Bảo Mật & Cập Nhật Tự Động
+                        v1.6.1 — Không gian nhắn tin đa nền tảng
                     </div>
-                    <h1>Zalo Desktop<br><span class="gradient-text"></span></h1>
-                    <p class="hero-desc">Ứng dụng Zalo đầy đủ tính năng, giao diện Dark Glass sang trọng, chạy nền
-                        trên System Tray. Mã nguồn mở, hoàn toàn miễn phí.</p>
+                    <h1>Tin nhắn của bạn<br><span class="gradient-text">trong một workspace</span></h1>
+                    <p class="hero-desc">Quản lý nhiều tài khoản Zalo, Messenger và các nền tảng nhắn tin khác trong một ứng dụng desktop gọn gàng, riêng tư theo từng phiên.</p>
                     <div class="hero-stats">
                         <div class="stat">
-                            <span class="stat-number">E2EE</span>
-                            <span class="stat-label">Mã hóa</span>
+                            <span class="stat-number">8+</span>
+                            <span class="stat-label">Nền tảng</span>
                         </div>
                         <div class="stat-divider"></div>
                         <div class="stat">
@@ -75,8 +74,8 @@
                         </div>
                         <div class="stat-divider"></div>
                         <div class="stat">
-                            <span class="stat-number">100%</span>
-                            <span class="stat-label">Mã nguồn mở</span>
+                            <span class="stat-number">Desktop</span>
+                            <span class="stat-label">Electron</span>
                         </div>
                     </div>
                 </div>
@@ -88,7 +87,7 @@
                                 <span class="dot dot-yellow"></span>
                                 <span class="dot dot-green"></span>
                             </div>
-                            <span class="titlebar-text">Dép Lào</span>
+                            <span class="titlebar-text">MessHub</span>
                         </div>
                         <div class="preview-body messenger-preview">
                             <div class="msg-sidebar">
@@ -117,7 +116,7 @@
                             </div>
                         </div>
                         <div class="preview-footer">
-                            <i class="fas fa-lock"></i> Tin nhắn được mã hóa đầu cuối (E2EE)
+                            <i class="fas fa-layer-group"></i> Không gian làm việc đa nền tảng
                         </div>
                     </div>
                 </div>
@@ -152,11 +151,11 @@
                 <div class="step-card">
                     <div class="step-number">04</div>
                     <h3>Build .exe</h3>
-                    <p>Chạy <code>npm run build</code> để tạo file cài đặt.</p>
+                    <p>Chạy <code>npm run build:win</code> để tạo bộ cài Windows.</p>
                 </div>
             </div>
             <div class="install-cta">
-                <a href="https://github.com/Tiodev71/Deplao-App/archive/refs/heads/main.zip"
+                <a href="https://github.com/PhamThuy1410/MessHub/archive/refs/heads/main.zip"
                     class="btn-primary btn-large">
                     <i class="fas fa-download"></i> Tải về ngay — Miễn phí
                 </a>
@@ -174,11 +173,11 @@
             <div class="shortcut-grid">
                 <div class="shortcut-card">
                     <div class="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>M</kbd></div>
-                    <p>Mở / Ẩn cửa sổ Zalo</p>
+                    <p>Mở / Ẩn MessHub</p>
                 </div>
                 <div class="shortcut-card">
                     <div class="shortcut-keys"><kbd>F12</kbd></div>
-                    <p>Mở Developer Tools</p>
+                    <p>Mở công cụ phát triển (bản dev)</p>
                 </div>
                 <div class="shortcut-card">
                     <div class="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>R</kbd></div>
@@ -202,19 +201,18 @@
                         <i class="fas fa-chevron-down"></i>
                     </button>
                     <div class="faq-answer">
-                        <p>Ứng dụng này đóng gói giao diện web Zalo bằng Electron, mang lại trải nghiệm desktop
-                            chuyên nghiệp với thông báo, phím tắt và System
-                            Tray.</p>
+                        <p>MessHub gom các phiên đăng nhập nhắn tin riêng vào một giao diện desktop, kèm workspace,
+                            tin nhắn mẫu, thông báo và tiện ích trên khay hệ thống.</p>
                     </div>
                 </div>
                 <div class="faq-item">
                     <button class="faq-question" onclick="this.parentElement.classList.toggle('open')">
-                        Có an toàn không? Tin nhắn có bị đọc?
+                        MessHub lưu dữ liệu ở đâu?
                         <i class="fas fa-chevron-down"></i>
                     </button>
                     <div class="faq-answer">
-                        <p>Hoàn toàn an toàn. Ứng dụng chỉ load trang web chính thức của Zalo (chat.zalo.me). Tin
-                            nhắn vẫn được mã hóa đầu cuối E2EE.</p>
+                        <p>Thiết lập workspace và tài khoản được lưu trên thiết bị. Tin nhắn được hiển thị bởi dịch vụ
+                            bạn đăng nhập; chính sách dữ liệu của nền tảng đó vẫn được áp dụng.</p>
                     </div>
                 </div>
                 <div class="faq-item">
@@ -233,18 +231,17 @@
                         <i class="fas fa-chevron-down"></i>
                     </button>
                     <div class="faq-answer">
-                        <p>Chỉnh sửa file <code>custom_style.css</code>. Bạn có thể đổi màu nền, độ mờ kính
+                        <p>Chỉnh sửa <code>src/renderer/styles/platform-overrides.css</code>. Bạn có thể đổi màu nền, độ mờ kính
                             (backdrop-filter), hoặc ẩn/hiện bất kỳ thành phần nào bằng CSS.</p>
                     </div>
                 </div>
                 <div class="faq-item">
                     <button class="faq-question" onclick="this.parentElement.classList.toggle('open')">
-                        Hỗ trợ Windows nào?
+                        Hỗ trợ hệ điều hành nào?
                         <i class="fas fa-chevron-down"></i>
                     </button>
                     <div class="faq-answer">
-                        <p>Windows 10 và Windows 11 (64-bit). Ứng dụng chạy trên Electron (Chromium) nên tương thích
-                            rộng rãi.</p>
+                        <p>Có cấu hình đóng gói cho Windows, macOS và Linux. Xem các lệnh build trong <code>package.json</code>.</p>
                     </div>
                 </div>
             </div>
@@ -257,14 +254,14 @@
             <div class="footer-grid">
                 <div class="footer-brand">
                     <div class="footer-logo">
-                        <img src="" alt="" width="28">
-                        <span>Dép Lào</span>
+                        <img src="assets/app-icon.png" alt="MessHub" width="28">
+                        <span>MessHub</span>
                     </div>
-                    <p>Ứng dụng Dép Lào Desktop. Miễn phí & mã nguồn mở.</p>
+                    <p>Không gian làm việc desktop cho nhiều tài khoản nhắn tin.</p>
                 </div>
                 <div class="footer-links">
                     <h4>Liên kết</h4>
-                    <a href="https://github.com/Tiodev71/Deplao-App.git" target="_blank" rel="noopener"><i
+                    <a href="https://github.com/PhamThuy1410/MessHub" target="_blank" rel="noopener"><i
                             class="fab fa-github"></i> GitHub</a>
                     <a href="https://www.facebook.com/tiodev71/" target="_blank" rel="noopener"><i
                             class="fab fa-facebook"></i>

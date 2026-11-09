@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="MessHub - Quản lý đa tài khoản Zalo, Messenger, Fanpage, Telegram, WhatsApp trên Desktop.">
+  <title>MessHub Client</title>
+  <link rel="stylesheet" href="styles/app.css">
+</head>
+
+<body class="dark-mode">
+  <div id="app-shell">
+    <nav id="sidebar" aria-label="Điều hướng MessHub">
+      <div id="brand-badge" title="MessHub" aria-label="MessHub">M</div>
+      <div id="profiles-list" aria-label="Tài khoản đã kết nối"></div>
+      <button type="button" class="profile-btn" id="btn-add-profile" title="Thêm tài khoản" aria-label="Thêm tài khoản">
+        <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+      </button>
+      <div class="sidebar-spacer"></div>
+      <button type="button" class="sidebar-action" id="btn-sidebar-back" title="Quay lại" aria-label="Quay lại">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="19" y1="12" x2="5" y2="12"></line>
+          <polyline points="12 19 5 12 12 5"></polyline>
+        </svg>
+      </button>
+      <button type="button" class="sidebar-action" id="btn-sidebar-reload" title="Tải lại trang" aria-label="Tải lại trang">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="23 4 23 10 17 10"></polyline>
+          <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+        </svg>
+      </button>
+      <button type="button" class="sidebar-action" id="btn-open-workspaces" title="Workspaces" aria-label="Workspaces">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+        </svg>
+      </button>
+      <button type="button" class="sidebar-action" id="btn-open-quick-replies" title="Tin nhắn mẫu" aria-label="Tin nhắn mẫu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 11.5a8.5 8.5 0 0 1-12.8 7.3L3 20l1.2-4.5A8.5 8.5 0 1 1 21 11.5z"></path>
+          <path d="M8 11h8M8 14h5"></path>
+        </svg>
+      </button>
+      <button type="button" class="sidebar-action" id="btn-open-downloads" title="Tải xuống" aria-label="Tải xuống">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <path d="m7 10 5 5 5-5M12 15V3"></path>
+        </svg>
+      </button>
+    </nav>
+  </div>
+
+  <div id="workspace-overlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="workspace-title">
+    <div class="panel-box mid">
+      <div class="panel-head">
+        <h3 id="workspace-title" class="panel-title">Workspace</h3>
+        <button type="button" class="modal-btn cancel" data-close="workspace-overlay">Đóng</button>
+      </div>
+      <p class="download-meta">Mỗi workspace có danh sách tài khoản và tin nhắn mẫu riêng.</p>
+      <div class="row mb-16">
+        <input id="workspace-name-input" class="modal-input compact-input" placeholder="Tên workspace mới">
+        <button type="button" id="workspace-create-btn" class="modal-btn save">Tạo mới</button>
+      </div>
+      <div id="workspace-list" class="list-scroll"></div>
+    </div>
+  </div>
+
+  <div id="quick-replies-overlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="quick-replies-title">
+    <div class="panel-box mid">
+      <div class="panel-head">
+        <h3 id="quick-replies-title" class="panel-title">Tin nhắn mẫu</h3>
+        <button type="button" class="modal-btn cancel" data-close="quick-replies-overlay">Đóng</button>
+      </div>
+      <p class="download-meta">Nhập <code>/1</code>, <code>/2</code> ... trong ô chat để chèn và gửi mẫu.</p>
+      <div id="quick-replies-list" class="list-scroll mb-16"></div>
+      <div class="row">
+        <textarea id="quick-reply-input" class="modal-textarea compact-textarea" placeholder="Nhập nội dung tin nhắn mẫu"></textarea>
+        <button type="button" class="modal-btn save" id="quick-reply-add">Thêm</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-overlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-box">
+      <h3 id="modal-title" class="panel-title">Thêm tài khoản</h3>
+      <div class="avatar-row">
+        <button type="button" id="avatar-preview" class="avatar-preview" aria-label="Chọn ảnh đại diện">
+          <span id="avatar-letter">+</span>
+          <img id="avatar-img" alt="" hidden>
+        </button>
+        <label for="avatar-input" class="muted avatar-picker-label">Chọn ảnh đại diện<br>(Tùy chọn)</label>
+        <input type="file" id="avatar-input" class="visually-hidden" accept="image/*">
+      </div>
+      <input type="text" id="profile-name-input" class="modal-input" placeholder="Tên hiển thị (để trống = tự lấy)">
+      <input type="text" id="profile-proxy-input" class="modal-input" placeholder="Proxy: ip:port hoặc ip:port:user:pass">
+      <select id="profile-platform-input" class="modal-select">
+        <option value="zalo">💬 Zalo</option>
+        <option value="telegram">✈️ Telegram</option>
+        <option value="messenger">💙 Messenger</option>
+        <option value="tiktok">📍 TikTok</option>
+        <option value="fanpage">🚩 FB Fanpage</option>
+        <option value="whatsapp">💚 WhatsApp</option>
+        <option value="teams">🟣 Microsoft Teams</option>
+        <option value="gmail">📧 Google / Gmail</option>
+      </select>
+      <div class="row modal-actions">
+        <button type="button" class="modal-btn warn" id="modal-delete" hidden>Xóa</button>
+        <div>
+          <button type="button" class="modal-btn cancel" id="modal-cancel">Hủy</button>
+          <button type="button" class="modal-btn save" id="modal-save">Lưu</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="update-overlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="update-title">
+    <div class="panel-box">
+      <div class="panel-head">
+        <h3 id="update-title" class="panel-title">Cập nhật ứng dụng</h3>
+        <button type="button" class="modal-btn cancel" data-close="update-overlay">Đóng</button>
+      </div>
+      <p id="update-status" class="download-meta">Sẵn sàng kiểm tra cập nhật.</p>
+      <div class="progress"><span id="update-progress"></span></div>
+      <div class="update-actions">
+        <button type="button" class="modal-btn cancel" id="update-check">Kiểm tra</button>
+        <button type="button" class="modal-btn save" id="update-download" hidden>Tải xuống</button>
+        <button type="button" class="modal-btn save" id="update-install" hidden>Cài đặt</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="downloads-overlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="downloads-title">
+    <div class="panel-box mid">
+      <div class="panel-head">
+        <h3 id="downloads-title" class="panel-title">Tệp đã tải xuống</h3>
+        <button type="button" class="modal-btn cancel" data-close="downloads-overlay">Đóng</button>
+      </div>
+      <div id="downloads-list" class="list-scroll mt-12"></div>
+    </div>
+  </div>
+
+  <div id="lock-overlay" class="overlay" role="dialog" aria-modal="true" aria-labelledby="lock-title">
+    <div class="modal-box">
+      <h2 id="lock-title">Khóa ứng dụng</h2>
+      <p id="lock-hint" class="download-meta">Nhập mật khẩu để mở khóa.</p>
+      <input type="password" id="lock-password" class="modal-input" placeholder="Mật khẩu">
+      <input type="password" id="lock-password-confirm" class="modal-input" placeholder="Nhập lại mật khẩu" hidden>
+      <button type="button" class="modal-btn save w-full" id="lock-submit">Mở khóa</button>
+    </div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+
+</html>

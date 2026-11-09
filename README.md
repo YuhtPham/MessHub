@@ -1,7 +1,7 @@
 # MessHub
 
 <p align="center">
-  <img src="icon.png" width="88" height="88" alt="MessHub" />
+  <img src="assets/icons/app-icon.png" width="88" height="88" alt="MessHub" />
 </p>
 
 <p align="center">
@@ -23,18 +23,8 @@
 
 Instead of opening multiple browser windows, MessHub provides a unified desktop workspace where each account can run inside an isolated profile/session.
 
-The application focuses on:
-
-- Multi-account management
-- Multi-platform messaging
-- Workspace isolation
-- Mini CRM
-- Quick Replies
-- Zalo campaigns
-- AI-assisted message rewriting
-- Privacy controls
-- Downloads management
-- Desktop utilities
+The application currently provides isolated platform sessions, workspaces,
+quick replies, app locking, download management, and desktop utilities.
 
 ---
 
@@ -49,8 +39,7 @@ MessHub supports web-based communication platforms including:
 - WhatsApp
 - Microsoft Teams
 - Gmail
-
-> Some automation features are platform-specific. Zalo currently has the most advanced campaign functionality.
+- TikTok
 
 ---
 
@@ -78,14 +67,7 @@ Each profile can maintain its own login session without interfering with other p
 
 MessHub supports isolated workspaces for different projects, teams or account groups.
 
-Each workspace can maintain its own:
-
-- Profiles
-- CRM contacts
-- Quick Replies
-- Campaigns
-- Analytics events
-- Workspace data
+Each workspace stores its own account profiles and quick replies.
 
 Example:
 
@@ -94,9 +76,45 @@ Workspace: Sales Team
 ├── Zalo Account 01
 ├── Zalo Account 02
 ├── Messenger Account
-└── CRM
+└── Quick Replies
 
 Workspace: Personal
 ├── Zalo Personal
 ├── Telegram
 └── Gmail
+```
+
+The desktop app runs locally and does not require a backend service.
+
+## Project structure
+
+```text
+src/
+├── main/                    Electron process and application lifecycle
+│   ├── index.js
+│   └── storage/              Local settings and workspace persistence
+│       ├── json-store.js
+│       └── workspace-store.js
+├── preload/                 Isolated bridge and messaging-site helpers
+│   ├── index.js
+│   └── page-injection.js
+└── renderer/                Desktop interface
+    ├── index.html
+    ├── renderer.js
+    └── styles/
+        ├── app.css
+        └── platform-overrides.css
+assets/
+└── icons/                   Application and Windows installer icons
+docs/                        Project website
+scripts/
+└── clean-build-output.js    Remove temporary Linux build files after packaging
+```
+
+The Electron application entry point is `src/main/index.js`. User settings,
+workspaces, and browser session partitions retain their existing locations so
+updates preserve account sessions and local data.
+
+`npm run build` places the `MessHub Client` AppImage in the project root. The
+post-build cleanup removes the temporary `linux-unpacked` directory and builder
+diagnostic files while keeping the AppImage and update metadata.

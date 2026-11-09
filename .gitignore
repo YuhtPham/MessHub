@@ -1,5 +1,9 @@
 node_modules/
 dist/
+/*.AppImage
+/latest-linux.yml
+/linux-unpacked/
+/builder-effective-config.yaml
+/builder-debug.yml
 *.log
 .env
-node_modules

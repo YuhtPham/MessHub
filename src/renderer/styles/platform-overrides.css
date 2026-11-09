@@ -1,13 +1,6 @@
 /* =========================================================
-   9META - FACEBOOK UI FIX
+   MessHub platform overrides
    ========================================================= */
-
-:root,
-.__fb-light-mode,
-.__fb-dark-mode {
-  --nine-meta-accent: #7c5cff;
-  --nine-meta-accent-2: #6ea8ff;
-}
 
 /* =========================================================
    SCROLLBAR
@@ -36,28 +29,28 @@
    ========================================================= */
 
 /* Chỉ ẩn banner khi đang ở giao diện Messenger */
-html.platform-meta:not(:has(#9meta-feed-toggle-btn))
+html.platform-messenger:not(:has(#messhub-feed-toggle-btn))
 div[role="banner"] {
   display: none !important;
 }
 
 /* Giữ header ổn định, không ép fixed */
-html.platform-meta div[role="banner"] {
+html.platform-messenger div[role="banner"] {
   position: sticky !important;
   top: 0 !important;
   z-index: 9999 !important;
 }
 
 
-html.platform-meta {
+html.platform-messenger {
   background: #18191a !important;
 }
 
-html.platform-meta footer {
+html.platform-messenger footer {
   display: none !important;
 }
 
-html.platform-meta div[role="progressbar"] {
+html.platform-messenger div[role="progressbar"] {
   display: none !important;
 }
 
@@ -65,10 +58,15 @@ html.platform-meta div[role="progressbar"] {
    FLOATING CHAT BUTTON
    ========================================================= */
 
-#9meta-feed-toggle-btn {
+#messhub-feed-toggle-btn {
   position: fixed !important;
-  top: 12px !important;
-  right: 15px !important;
+  top: auto !important;
+  right: auto !important;
+  bottom: 20px !important;
+  left: 85px !important;
+  display: block !important;
+  width: max-content !important;
+  height: auto !important;
   z-index: 999999 !important;
 }
 
@@ -92,30 +90,6 @@ select {
 select option {
   background: #1c1e21 !important;
   color: #fff !important;
-}
-
-/* ============================================================ */
-/* ĐIỀU KHIỂN HIỂN THỊ CHO BẢNG CÔNG CỤ TOOLS LAUNCHER          */
-/* ============================================================ */
-
-/* Mặc định ẩn hoàn toàn bảng overlay khi chưa được kích hoạt */
-#tools-overlay {
-  display: none;
-  position: fixed;
-  inset: 0;
-  z-index: 999999;
-}
-
-/* Lớp class này sẽ được JavaScript tự động thêm vào khi bạn click nút */
-#tools-overlay.active {
-  display: flex !important;
-}
-
-/* Làm đẹp nhẹ cho bố cục bảng điều khiển nổi */
-.tools-panel {
-  background: #1c1e29 !important;
-  border-left: 1px solid rgba(255, 255, 255, 0.08) !important;
-  box-shadow: -10px 0 40px rgba(0, 0, 0, 0.5) !important;
 }
 
 .profile-btn {

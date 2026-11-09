@@ -1,9 +1,4 @@
-// ============================================================
-//  Ứng dụng MessHub Desktop
-//  Nhân: Chromium (Google Chrome)
-//  Tác giả: Nguyễn Đình Thọ
-//  [FIXED VERSION] - Loại bỏ lỗi, tối ưu hóa code
-// ============================================================
+// MessHub Electron main process.
 
 const {
   app,
@@ -20,20 +15,32 @@ const {
   nativeTheme,
   dialog,
   Notification,
+  clipboard,
 } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const { readJson, writeJson } = require('./storage/json-store');
+const { WorkspaceStore } = require('./storage/workspace-store');
+
+const APP_ROOT = path.resolve(__dirname, '../..');
+const APP_ICON_PATH = path.join(APP_ROOT, 'assets/icons/app-icon.png');
+const PLATFORM_STYLES_PATH = path.join(APP_ROOT, 'src/renderer/styles/platform-overrides.css');
 
 const ZALO_URL = 'https://chat.zalo.me';
-const APP_ID = 'com.zalo.desktop';
-const SIDEBAR_WIDTH = 70;
+const APP_DISPLAY_NAME = 'MessHub Client';
+const WINDOWS_APP_USER_MODEL_ID = 'com.tiodev.meta9';
+const USER_DATA_DIRECTORY_NAME = 'MessHub';
+const SIDEBAR_WIDTH = 76;
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
+
+// Keep settings and browser sessions in the existing directory after changing the packaged product name.
+app.setName(USER_DATA_DIRECTORY_NAME);
 
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) app.quit();
-if (process.platform === 'win32') app.setAppUserModelId(APP_ID);
+if (process.platform === 'win32') app.setAppUserModelId(WINDOWS_APP_USER_MODEL_ID);
 
 const SETTINGS_PATH = path.join(app.getPath('userData'), 'settings.json');
 const DEFAULT_SETTINGS = {
@@ -44,8 +51,6 @@ const DEFAULT_SETTINGS = {
   globalHotkey: 'Ctrl+Shift+M',
   isDarkMode: true,
   alwaysOnTop: false,
-  blockSeen: true,
-  blockTyping: true,
   zadarkShield: false,
   lockOnStartup: false,
   lockPasswordHash: '',
@@ -54,106 +59,18 @@ const DEFAULT_SETTINGS = {
 };
 
 function loadSettings() {
-  try {
-    return { ...DEFAULT_SETTINGS, ...JSON.parse(fs.readFileSync(SETTINGS_PATH, 'utf8')) };
-  } catch {
-    return { ...DEFAULT_SETTINGS };
-  }
+  const settings = readJson(SETTINGS_PATH, DEFAULT_SETTINGS);
+  const hadRemovedMessagingOptions = 'blockSeen' in settings || 'blockTyping' in settings;
+
+  delete settings.blockSeen;
+  delete settings.blockTyping;
+
+  if (hadRemovedMessagingOptions) writeJson(SETTINGS_PATH, settings);
+  return settings;
 }
 
 function saveSettings(data) {
-  try {
-    fs.writeFileSync(SETTINGS_PATH, JSON.stringify(data, null, 2), 'utf8');
-  } catch (err) {
-    console.error('[Settings] Lỗi lưu settings:', err.message);
-  }
-}
-
-const WORKSPACES_DIR = path.join(app.getPath('userData'), 'workspaces');
-const WORKSPACE_INDEX_PATH = path.join(WORKSPACES_DIR, 'index.json');
-const DEFAULT_WORKSPACE_DATA = {
-  profiles: [],
-  quickReplies: [],
-};
-
-function ensureDir(dir) {
-  try {
-    fs.mkdirSync(dir, { recursive: true });
-  } catch {
-    // Directory already exists
-  }
-}
-
-function safeJsonRead(file, fallback) {
-  try {
-    return { ...fallback, ...JSON.parse(fs.readFileSync(file, 'utf8')) };
-  } catch {
-    return { ...fallback };
-  }
-}
-
-function safeJsonWrite(file, data) {
-  ensureDir(path.dirname(file));
-  try {
-    fs.writeFileSync(file, JSON.stringify(data, null, 2), 'utf8');
-  } catch (err) {
-    console.error('[Workspace] Lỗi lưu workspace:', err.message);
-  }
-}
-
-function normalizeWorkspaceData(data = {}) {
-  return {
-    profiles: Array.isArray(data.profiles) ? data.profiles : [],
-    quickReplies: Array.isArray(data.quickReplies) ? data.quickReplies : [],
-  };
-}
-
-function loadWorkspaceIndex() {
-  ensureDir(WORKSPACES_DIR);
-  let index = safeJsonRead(WORKSPACE_INDEX_PATH, { currentId: 'default', workspaces: [] });
-
-  if (!Array.isArray(index.workspaces) || !index.workspaces.length) {
-    index = {
-      currentId: 'default',
-      workspaces: [{ id: 'default', name: 'Workspace mặc định', createdAt: Date.now() }],
-    };
-    safeJsonWrite(WORKSPACE_INDEX_PATH, index);
-  }
-
-  if (!index.workspaces.some((w) => w.id === index.currentId)) {
-    index.currentId = index.workspaces[0].id;
-  }
-
-  return index;
-}
-
-function getWorkspaceFile(id) {
-  return path.join(WORKSPACES_DIR, id, 'data.json');
-}
-
-function loadWorkspaceData(id) {
-  return normalizeWorkspaceData(safeJsonRead(getWorkspaceFile(id), DEFAULT_WORKSPACE_DATA));
-}
-
-function saveWorkspaceData(id, data) {
-  safeJsonWrite(getWorkspaceFile(id), normalizeWorkspaceData(data));
-}
-
-function getWorkspaceState() {
-  const index = loadWorkspaceIndex();
-  const data = loadWorkspaceData(index.currentId);
-  if (!data.quickReplies.length && settings.quickReplies?.length) {
-    data.quickReplies = settings.quickReplies;
-  }
-  return { ...index, data };
-}
-
-function persistWorkspaceState(data) {
-  const index = loadWorkspaceIndex();
-  saveWorkspaceData(index.currentId, data);
-  settings.quickReplies = normalizeWorkspaceData(data).quickReplies;
-  saveSettings(settings);
-  return getWorkspaceState();
+  writeJson(SETTINGS_PATH, data);
 }
 
 function broadcastQuickReplies(replies) {
@@ -165,11 +82,15 @@ function broadcastQuickReplies(replies) {
 let mainWindow = null;
 let tray = null;
 let settings = loadSettings();
+const workspaceStore = new WorkspaceStore(
+  app.getPath('userData'),
+  () => settings,
+  () => saveSettings(settings)
+);
 let isQuitting = false;
-let unreadCount = 0;
 let browserViews = {};
 let activeProfileId = null;
-let isManualUpdateCheck = false; // ✅ Khai báo trước khi sử dụng
+let isManualUpdateCheck = false;
 
 const NOTIFICATION_COOLDOWN_MS = 5000;
 const BADGE_DEBOUNCE_MS = 300;
@@ -238,7 +159,7 @@ function destroyBrowserView(id) {
   }
 
   delete browserViews[id];
-  delete globalProfileBadges[id]; // ✅ Thêm: Xóa badge để tránh memory leak
+  delete profileUnreadCounts[id];
 
   if (activeProfileId === id) {
     activeProfileId = null;
@@ -319,7 +240,7 @@ function verifyPassword(password) {
 }
 
 function createTray() {
-  const iconPath = path.join(__dirname, 'icon.png');
+  const iconPath = APP_ICON_PATH;
   let trayIcon;
   try {
     trayIcon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 });
@@ -328,7 +249,7 @@ function createTray() {
   }
   tray = new Tray(trayIcon);
   updateTrayMenu();
-  tray.setToolTip('MessHub');
+  tray.setToolTip(APP_DISPLAY_NAME);
   tray.on('click', () => {
     if (!mainWindow || mainWindow.isDestroyed()) return;
 
@@ -353,15 +274,32 @@ function createTray() {
 function updateTrayMenu() {
   if (!tray) return;
   const contextMenu = Menu.buildFromTemplate([
-    { label: '💬 Mở MessHub', click: () => { mainWindow.show(); mainWindow.focus(); } },
+    { label: `💬 Mở ${APP_DISPLAY_NAME}`, click: () => { mainWindow.show(); mainWindow.focus(); } },
     { label: '🔒 Khóa ứng dụng', click: lockApp },
+    { type: 'separator' },
+    {
+      label: 'Luôn ở trên cùng',
+      type: 'checkbox',
+      checked: settings.alwaysOnTop,
+      click: (item) => {
+        settings.alwaysOnTop = item.checked;
+        mainWindow.setAlwaysOnTop(item.checked);
+        saveSettings(settings);
+      },
+    },
+    {
+      label: 'Chế độ tối',
+      type: 'checkbox',
+      checked: settings.isDarkMode,
+      click: (item) => setDarkMode(item.checked),
+    },
     { type: 'separator' },
     {
       label: '🔄 Tải lại trang',
       click: () => activeProfileId && browserViews[activeProfileId]?.webContents.reload(),
     },
     {
-      label: '🚀 Khởi động cùng Windows',
+      label: '🚀 Khởi động cùng hệ thống',
       type: 'checkbox',
       checked: settings.autoLaunch,
       click: (item) => toggleAutoLaunch(item.checked),
@@ -379,18 +317,6 @@ function updateTrayMenu() {
     {
       label: '🛡️ Bảo mật',
       submenu: [
-        {
-          label: 'Chặn hiển thị "Đã xem"',
-          type: 'checkbox',
-          checked: settings.blockSeen,
-          click: (item) => toggleBlockSeen(item.checked),
-        },
-        {
-          label: 'Chặn hiển thị "Đang nhập"',
-          type: 'checkbox',
-          checked: settings.blockTyping,
-          click: (item) => toggleBlockTyping(item.checked),
-        },
         {
           label: 'ZaDark Shield',
           type: 'checkbox',
@@ -421,14 +347,11 @@ function updateTrayMenu() {
   tray.setContextMenu(contextMenu);
 }
 
-function broadcastBlockSettings() {
-  const newSettings = {
-    blockSeen: settings.blockSeen,
-    blockTyping: settings.blockTyping,
-    zadarkShield: settings.zadarkShield,
-  };
+function broadcastApplicationState() {
   for (const id in browserViews) {
-    browserViews[id]?.webContents?.send('update-block-settings', newSettings);
+    browserViews[id]?.webContents?.send('update-shield-setting', {
+      zadarkShield: settings.zadarkShield,
+    });
   }
   sendToRenderer('lock-state', {
     locked: appLocked,
@@ -437,28 +360,27 @@ function broadcastBlockSettings() {
   });
 }
 
-function toggleBlockSeen(enable) {
-  settings.blockSeen = enable;
+function setDarkMode(enabled) {
+  settings.isDarkMode = enabled;
+  nativeTheme.themeSource = enabled ? 'dark' : 'light';
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.setBackgroundColor(enabled ? '#0a101b' : '#f1f5fb');
+  }
   saveSettings(settings);
-  broadcastBlockSettings();
-}
-
-function toggleBlockTyping(enable) {
-  settings.blockTyping = enable;
-  saveSettings(settings);
-  broadcastBlockSettings();
+  sendToRenderer('theme-changed', enabled);
+  updateTrayMenu();
 }
 
 function toggleZadarkShield(enable) {
   settings.zadarkShield = enable;
   saveSettings(settings);
-  broadcastBlockSettings();
+  broadcastApplicationState();
   updateTrayMenu();
 }
 
 function setupAutoUpdater() {
   autoUpdater.autoDownload = false;
-  autoUpdater.logger = require('electron').app.isPackaged ? null : console;
+  autoUpdater.logger = app.isPackaged ? null : console;
 
   autoUpdater.on('checking-for-update', () => {
     console.log('[AutoUpdater] Checking for update...');
@@ -635,7 +557,7 @@ function isInternalUrl(url) {
   ].some((d) => url.includes(d));
 }
 
-function setupWebContents(contents, profileId) {
+function setupWebContents(contents) {
   contents.setWindowOpenHandler(({ url }) => {
     if (url === 'about:blank' || url.startsWith('blob:') || url.startsWith('file:')) {
       return { action: 'allow' };
@@ -674,7 +596,7 @@ function setupWebContents(contents, profileId) {
       menu.append(new MenuItem({ label: '🔗 Mở liên kết', click: () => shell.openExternal(params.linkURL) }));
       menu.append(new MenuItem({
         label: '📋 Sao chép liên kết',
-        click: () => require('electron').clipboard.writeText(params.linkURL),
+        click: () => clipboard.writeText(params.linkURL),
       }));
     }
     if (params.mediaType === 'image') {
@@ -716,43 +638,52 @@ function setupWebContents(contents, profileId) {
       // Nhận diện nền tảng
       let platformClass = 'platform-generic';
       if (host.includes('telegram.org')) platformClass = 'platform-telegram';
-      else if (host.includes('messenger.com') || host.includes('facebook.com')) platformClass = 'platform-meta';
+      else if (host.includes('messenger.com') || host.includes('facebook.com')) platformClass = 'platform-messenger';
       else if (host.includes('zalo.me')) platformClass = 'platform-zalo';
       else if (host.includes('whatsapp.com')) platformClass = 'platform-whatsapp';
       else if (host.includes('tiktok.com')) platformClass = 'platform-tiktok';
 
-      contents.insertCSS(`html, body { --nine-meta-platform: ${platformClass}; } html { color-scheme: dark; }`);
+      contents.insertCSS('html { color-scheme: dark; }');
       contents.executeJavaScript(`document.documentElement.classList.add('${platformClass}');`, true).catch(() => {});
 
-      // ✅ [FIX] Thêm error handling cho CSS file
+      // Platform overrides are optional so a missing stylesheet cannot block navigation.
       try {
-        const customStyles = fs.readFileSync(path.join(__dirname, 'custom_style.css'), 'utf8');
+        const customStyles = fs.readFileSync(
+          PLATFORM_STYLES_PATH,
+          'utf8'
+        );
         contents.insertCSS(customStyles);
       } catch (err) {
-        console.warn('[Setup] Không thể tải custom_style.css:', err.message);
+        console.warn('[Setup] Could not load platform overrides:', err.message);
       }
 
-      // ============================================================
-      // ĐOẠN INJECT NÚT CHUYỂN ĐỔI FEED / MESSENGER CHO FACEBOOK
-      // ============================================================
-      if (platformClass === 'platform-meta') {
+      // Add a shortcut for switching between the Facebook feed and Messenger.
+      if (platformClass === 'platform-messenger') {
         contents
           .executeJavaScript(
             `
           (function() {
-            var btnId = '9meta-feed-toggle-btn';
+            var btnId = 'messhub-feed-toggle-btn';
             if (document.getElementById(btnId)) return;
 
             var btn = document.createElement('div');
             btn.id = btnId;
+            btn.setAttribute('role', 'button');
+            btn.setAttribute('tabindex', '0');
             
             var isFeed = window.location.hostname.includes('facebook.com');
-            btn.innerHTML = isFeed ? '💬 Vào Chat' : '📰 Xem Feed';
+            btn.textContent = isFeed ? '💬 Vào Chat' : '📰 Xem Feed';
 
             btn.style.cssText = 'position:fixed; bottom:20px; left:85px; z-index:999999; background:linear-gradient(135deg,#7c5cff,#6ea8ff); color:white; padding:10px 18px; border-radius:20px; font-family:sans-serif; font-size:13px; font-weight:bold; cursor:pointer; box-shadow:0 8px 24px rgba(0,0,0,.3); transition:all .2s ease;';
             
             btn.onmouseenter = function() { btn.style.transform = 'scale(1.05)'; };
             btn.onmouseleave = function() { btn.style.transform = 'scale(1)'; };
+            btn.addEventListener('keydown', function(event) {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                btn.click();
+              }
+            });
 
             btn.onclick = function() {
               if (isFeed) {
@@ -787,8 +718,8 @@ function setupWebContents(contents, profileId) {
 }
 
 function setupDownloads(sess) {
-  if (sess.__depLaoDownloadsHooked) return;
-  sess.__depLaoDownloadsHooked = true;
+  if (sess.__messHubDownloadsHooked) return;
+  sess.__messHubDownloadsHooked = true;
 
   sess.on('will-download', (event, item) => {
     const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -835,14 +766,15 @@ function createWindow() {
     y: windowBounds.y,
     minWidth: 400,
     minHeight: 300,
-    title: 'MessHub',
-    icon: path.join(__dirname, 'icon.png'),
-    backgroundColor: settings.isDarkMode ? '#242526' : '#ffffff',
+    title: APP_DISPLAY_NAME,
+    icon: APP_ICON_PATH,
+    backgroundColor: settings.isDarkMode ? '#0a101b' : '#f1f5fb',
     show: !settings.startMinimized,
     autoHideMenuBar: true,
     titleBarOverlay: false,
     webPreferences: { nodeIntegration: true, contextIsolation: false, spellcheck: false },
   });
+  mainWindow.setAlwaysOnTop(settings.alwaysOnTop);
 
   app.on('session-created', (sess) => {
     setupDownloads(sess);
@@ -869,62 +801,6 @@ function createWindow() {
           .catch(() => {});
       }
     });
-
-    sess.webRequest.onBeforeRequest({ urls: ['*://*.zalo.me/*', '*://*.zadn.vn/*'] }, (details, callback) => {
-      let cancel = false;
-      const method = (details.method || '').toUpperCase();
-      if (method === 'GET') return callback({ cancel: false });
-
-      const syncSafePatterns = ['/sync', '/conversation', '/api/message/list', '/api/message/get', '/api/group'];
-      if (syncSafePatterns.some((p) => details.url.includes(p))) return callback({ cancel: false });
-
-      if (
-        settings.blockSeen &&
-        (details.url.includes('/api/message/read') || details.url.includes('/api/message/seen')) &&
-        !details.url.includes('read_status')
-      )
-        cancel = true;
-      if (settings.blockTyping && details.url.includes('/api/message/typing')) cancel = true;
-
-      callback({ cancel });
-    });
-
-    sess.webRequest.onBeforeRequest({ urls: ['*://*.messenger.com/*', '*://*.facebook.com/*'] }, (details, callback) => {
-      let cancel = false;
-      const method = (details.method || '').toUpperCase();
-      if (method === 'GET') return callback({ cancel: false });
-
-      if (
-        settings.blockSeen &&
-        (details.url.includes('change_read_status') ||
-          details.url.includes('mark_read') ||
-          details.url.includes('read_receipt') ||
-          details.url.includes('/ajax/mercury/mark_seen'))
-      )
-        cancel = true;
-      if (settings.blockTyping && (details.url.includes('typ.php') || details.url.includes('typing_indicator') || details.url.includes('send_typing_indicator')))
-        cancel = true;
-
-      callback({ cancel });
-    });
-
-    sess.webRequest.onBeforeRequest(
-      { urls: ['*://*.whatsapp.com/*', '*://web.whatsapp.com/*', '*://web.telegram.org/*', '*://*.telegram.org/*'] },
-      (details, callback) => {
-        let cancel = false;
-        const method = (details.method || '').toUpperCase();
-        if (method === 'GET') return callback({ cancel: false });
-
-        if (settings.blockSeen && (details.url.includes('/read') || details.url.includes('receipt'))) cancel = true;
-        if (
-          settings.blockTyping &&
-          (details.url.includes('chatstate') || details.url.includes('composing') || details.url.includes('typing'))
-        )
-          cancel = true;
-
-        callback({ cancel });
-      }
-    );
 
     sess.setPermissionRequestHandler((webContents, permission, callback) => {
       const url = webContents.getURL();
@@ -964,7 +840,7 @@ function createWindow() {
     });
   });
 
-  mainWindow.loadFile('index.html');
+  mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
 
   mainWindow.webContents.on('before-input-event', (event, input) => {
     if (app.isPackaged && (input.key === 'F12' || (input.control && input.shift && input.key === 'I'))) {
@@ -1007,7 +883,7 @@ function createWindow() {
       const view = new BrowserView({
         webPreferences: {
           partition: profile.partition,
-          preload: path.join(__dirname, 'preload.js'),
+          preload: path.join(__dirname, '../preload/index.js'),
           contextIsolation: true,
           nodeIntegration: false,
           backgroundThrottling: true,
@@ -1015,12 +891,12 @@ function createWindow() {
       });
 
       browserViews[profile.id] = view;
-      setupWebContents(view.webContents, profile.id);
+      setupWebContents(view.webContents);
 
       const sess = session.fromPartition(profile.partition);
       setupDownloads(sess);
 
-      // ✅ [FIX] Tối ưu xử lý proxy
+      // Configure the profile's proxy before loading its platform.
       if (profile.proxy) {
         let proxyRules = profile.proxy;
         const parts = profile.proxy.trim().split(':');
@@ -1124,42 +1000,6 @@ function createWindow() {
     if (senderId) sendToRenderer('update-profile-info', { id: senderId, name: info.name, avatarUrl: info.avatar });
   });
 
-  ipcMain.on('update-badge', (event, count) => {
-    if (count !== unreadCount) {
-      const hadNewMessages = count > unreadCount;
-      unreadCount = count;
-      updateBadge(unreadCount);
-      if (hadNewMessages && !mainWindow.isFocused()) mainWindow.flashFrame(true);
-    }
-  });
-
-  ipcMain.on('set-theme', (event, isDark) => {
-    settings.isDarkMode = isDark;
-    saveSettings(settings);
-    nativeTheme.themeSource = isDark ? 'dark' : 'light';
-  });
-
-  ipcMain.on('toggle-always-on-top', () => {
-    settings.alwaysOnTop = !settings.alwaysOnTop;
-    mainWindow.setAlwaysOnTop(settings.alwaysOnTop);
-    saveSettings(settings);
-  });
-
-  ipcMain.on('toggle-fullscreen', () => {
-    mainWindow.setFullScreen(!mainWindow.isFullScreen());
-    setTimeout(updateBrowserViewBounds, 100);
-  });
-
-  ipcMain.on('zoom-in', () => {
-    const wc = activeProfileId && browserViews[activeProfileId]?.webContents;
-    if (wc) wc.setZoomLevel(wc.getZoomLevel() + 0.5);
-  });
-
-  ipcMain.on('zoom-out', () => {
-    const wc = activeProfileId && browserViews[activeProfileId]?.webContents;
-    if (wc) wc.setZoomLevel(wc.getZoomLevel() - 0.5);
-  });
-
   ipcMain.on('reload-page', () => activeProfileId && browserViews[activeProfileId]?.webContents.reload());
 
   ipcMain.on('go-back-page', () => {
@@ -1172,13 +1012,9 @@ function createWindow() {
   });
 
   ipcMain.on('get-settings', (event) => {
-    const ws = getWorkspaceState();
+    const ws = workspaceStore.getState();
     event.returnValue = {
       isDarkMode: settings.isDarkMode,
-      alwaysOnTop: settings.alwaysOnTop,
-      blockSeen: settings.blockSeen,
-      blockTyping: settings.blockTyping,
-      zadarkShield: settings.zadarkShield,
       lockOnStartup: settings.lockOnStartup,
       hasLockPassword: !!settings.lockPasswordHash,
       quickReplies: ws.data.quickReplies || [],
@@ -1186,49 +1022,23 @@ function createWindow() {
   });
 
   ipcMain.on('workspace-get-state', (event) => {
-    event.returnValue = getWorkspaceState();
+    event.returnValue = workspaceStore.getState();
   });
 
   ipcMain.on('workspace-save-data', (event, data) => {
-    const state = persistWorkspaceState(data || {});
+    const state = workspaceStore.saveCurrentData(data || {});
     broadcastQuickReplies(state.data.quickReplies);
     event.returnValue = state;
   });
 
   ipcMain.on('workspace-create', (event, name) => {
-    const index = loadWorkspaceIndex();
-    const id = `ws_${Date.now()}`;
-    index.workspaces.push({
-      id,
-      name: String(name || 'Workspace mới').trim() || 'Workspace mới',
-      createdAt: Date.now(),
-    });
-    index.currentId = id;
-    safeJsonWrite(WORKSPACE_INDEX_PATH, index);
-    saveWorkspaceData(id, DEFAULT_WORKSPACE_DATA);
-    event.returnValue = getWorkspaceState();
+    event.returnValue = workspaceStore.create(name);
   });
 
   ipcMain.on('workspace-switch', (event, id) => {
-    const index = loadWorkspaceIndex();
-    if (index.workspaces.some((w) => w.id === id)) {
-      index.currentId = id;
-      safeJsonWrite(WORKSPACE_INDEX_PATH, index);
-    }
-    const state = getWorkspaceState();
+    const state = workspaceStore.switchTo(id);
     broadcastQuickReplies(state.data.quickReplies);
     event.returnValue = state;
-  });
-
-  ipcMain.on('get-quick-replies', (event) => {
-    event.returnValue = getWorkspaceState().data.quickReplies || settings.quickReplies || [];
-  });
-
-  ipcMain.on('save-quick-replies', (event, replies) => {
-    const state = getWorkspaceState();
-    state.data.quickReplies = replies || [];
-    persistWorkspaceState(state.data);
-    broadcastQuickReplies(state.data.quickReplies);
   });
 
   ipcMain.on('profile-badge-updated', (event, count) => {
@@ -1245,16 +1055,16 @@ function createWindow() {
 
     count = Number.isFinite(Number(count)) ? Math.max(0, Number(count)) : 0;
 
-    // ✅ [FIX] Tránh xử lý badge không thay đổi
-    if (globalProfileBadges[senderId] === count) {
+    // Avoid reprocessing an unchanged unread count.
+    if (profileUnreadCounts[senderId] === count) {
       return;
     }
 
-    globalProfileBadges[senderId] = count;
+    profileUnreadCounts[senderId] = count;
 
     sendToRenderer('update-profile-badge', { id: senderId, count });
 
-    // ✅ [FIX] Debounce notification aggregator
+    // Debounce notification aggregation when multiple views update together.
     if (badgeDebounceTimer) {
       clearTimeout(badgeDebounceTimer);
     }
@@ -1288,7 +1098,6 @@ function createWindow() {
     isQuitting = true;
     autoUpdater.quitAndInstall();
   });
-  ipcMain.on('get-update-state', () => sendToRenderer('update-state', updateState));
   ipcMain.on('get-downloads', () => sendToRenderer('downloads-list', downloads));
   ipcMain.on('open-download', (event, id) => {
     const d = downloads.find((x) => x.id === id);
@@ -1302,9 +1111,7 @@ function createWindow() {
     downloads = downloads.filter((x) => x.id !== id);
     sendToRenderer('downloads-list', downloads);
   });
-  ipcMain.on('toggle-zadark-shield', () => toggleZadarkShield(!settings.zadarkShield));
-
-  // ✅ [FIX] Chỉ khai báo lockApp() một lần
+  // Configure the application lock.
   ipcMain.on('set-lock-password', (event, password) => {
     const result = hashPassword(password);
     settings.lockSalt = result.salt;
@@ -1318,17 +1125,17 @@ function createWindow() {
   ipcMain.on('unlock-app', (event, password) => unlockApp(verifyPassword(password)));
 }
 
-let globalProfileBadges = {};
+let profileUnreadCounts = {};
 let lastNotificationSummary = '';
 
 function checkOmnichannelNotifications() {
   let platformCounts = {};
   let totalCount = 0;
 
-  const ws = getWorkspaceState();
+  const ws = workspaceStore.getState();
   const currentProfiles = ws.data.profiles || [];
 
-  for (const [profileId, rawCount] of Object.entries(globalProfileBadges)) {
+  for (const [profileId, rawCount] of Object.entries(profileUnreadCounts)) {
     const count = Number(rawCount) || 0;
 
     if (count <= 0) continue;
@@ -1385,10 +1192,10 @@ function checkOmnichannelNotifications() {
 
   try {
     const notification = new Notification({
-      title: '📥 MessHub — Gộp thông báo',
+      title: `📥 ${APP_DISPLAY_NAME} — Gộp thông báo`,
       body: `Bạn có ${currentSummary} chưa đọc cần xử lý.`,
       silent: false,
-      icon: path.join(__dirname, 'icon.png'),
+      icon: APP_ICON_PATH,
     });
 
     notification.on('click', () => {
@@ -1404,7 +1211,6 @@ function checkOmnichannelNotifications() {
   }
 }
 
-// ✅ [FIX] Chỉ khai báo một lần, không trùng lặp
 function lockApp() {
   appLocked = true;
 
@@ -1413,7 +1219,7 @@ function lockApp() {
   }
 
   suspendBrowserViews();
-  destroyInactiveBrowserViewsExcept(null); // ✅ Thêm: Xóa views không cần thiết
+  destroyInactiveBrowserViewsExcept(null);
 
   sendToRenderer('lock-state', {
     locked: true,
@@ -1462,7 +1268,7 @@ function updateBadge(count) {
   }
 
   if (tray) {
-    tray.setToolTip(count > 0 ? `MessHub — ${count} tin nhắn chưa đọc` : 'MessHub');
+    tray.setToolTip(count > 0 ? `${APP_DISPLAY_NAME} — ${count} tin nhắn chưa đọc` : APP_DISPLAY_NAME);
   }
 }
 
@@ -1552,7 +1358,7 @@ app.on('will-quit', () => {
 
   proxyCredentials = {};
   downloads = [];
-  globalProfileBadges = {};
+  profileUnreadCounts = {};
   lastNotificationSummary = '';
 });
 

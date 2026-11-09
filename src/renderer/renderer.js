@@ -10,18 +10,29 @@ const avatarImg = document.getElementById('avatar-img');
 const avatarLetter = document.getElementById('avatar-letter');
 const avatarInput = document.getElementById('avatar-input');
 
-const overlayIds = [  'workspace-overlay',  'quick-replies-overlay',
-  'modal-overlay',
-  'update-overlay',
-  'downloads-overlay',
-];
+const DEFAULT_PLATFORM = 'zalo';
+const overlayElements = Array.from(document.querySelectorAll('.overlay'));
+const PLATFORM_ICONS = {
+  zalo: 'Z',
+  telegram: '✈',
+  messenger: 'M',
+  fanpage: 'F',
+  whatsapp: 'W',
+  teams: 'T',
+  gmail: 'G',
+  tiktok: '♪',
+};
 
 const defaultState = {
   profiles: [],
   quickReplies: [],
 };
 
-let workspaceState = ipcRenderer.sendSync('workspace-get-state') || { currentId: 'default', workspaces: [], data: defaultState };
+let workspaceState = ipcRenderer.sendSync('workspace-get-state') || {
+  currentId: 'default',
+  workspaces: [],
+  data: defaultState,
+};
 let workspaceData = normalizeWorkspaceData(workspaceState.data);
 let profiles = normalizeProfiles(workspaceData.profiles);
 let activeProfileId = profiles[0]?.id || null;
@@ -42,11 +53,16 @@ function normalizeWorkspaceData(data = {}) {
   };
 }
 function normalizeProfiles(list) {
-  const arr = Array.isArray(list) ? list : [];
-  if (!arr.length) {
-    return [{ id: String(Date.now()), name: 'Nick 1', partition: `persist:nick_${Date.now()}`, platform: 'zalo' }];
+  const profileList = Array.isArray(list) ? list : [];
+  if (!profileList.length) {
+    const id = String(Date.now());
+    return [{ id, name: 'Tài khoản 1', partition: `persist:nick_${id}`, platform: DEFAULT_PLATFORM }];
   }
-  return arr.map((p) => ({ ...p, platform: p.platform || 'zalo', partition: p.partition || `persist:nick_${p.id}` }));
+  return profileList.map((profile) => ({
+    ...profile,
+    platform: profile.platform || DEFAULT_PLATFORM,
+    partition: profile.partition || `persist:nick_${profile.id}`,
+  }));
 }
 function persistWorkspace() {
   workspaceData.profiles = profiles;
@@ -54,7 +70,9 @@ function persistWorkspace() {
   workspaceState = ipcRenderer.sendSync('workspace-save-data', workspaceData);
   workspaceData = normalizeWorkspaceData(workspaceState.data);
   profiles = normalizeProfiles(workspaceData.profiles);
-  if (!profiles.some((p) => p.id === activeProfileId)) activeProfileId = profiles[0]?.id || null;
+  if (!profiles.some((profile) => profile.id === activeProfileId)) {
+    activeProfileId = profiles[0]?.id || null;
+  }
 }
 function openOverlay(id) {
   const el = document.getElementById(id);
@@ -65,23 +83,36 @@ function openOverlay(id) {
 }
 
 function closeOverlay(id) {
-  const el = document.getElementById(id);
-  if (el) el.style.display = 'none';
-  
-  // Kiểm tra thật kỹ xem còn overlay nào đang mở thật sự không
-  const stillOpen = overlayIds.some((overlayId) => {
-    const target = document.getElementById(overlayId);
-    return target && target.style.display === 'flex';
-  });
-  
-  // Nếu không còn overlay nào che chắn, PHẢI mở lại quyền thao tác và hiển thị cho Zalo
-  if (!stillOpen) {
-    ipcRenderer.send('set-browserview-visibility', true);
-  }
+  const overlay = document.getElementById(id);
+  if (overlay) overlay.style.display = 'none';
+
+  const anotherOverlayIsOpen = overlayElements.some(
+    (item) => item !== overlay && item.style.display === 'flex'
+  );
+  if (!anotherOverlayIsOpen) ipcRenderer.send('set-browserview-visibility', true);
 }
-function escapeHtml(s) { return String(s || '').replace(/[&<>\"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
-function platformIcon(platform) { return { zalo: 'Z', telegram: '✈', messenger: 'M', fanpage: '🚩', whatsapp: 'W', teams: 'T', gmail: 'G', tiktok: '🎵' }[platform || 'zalo'] || 'A'; }function formatDate(ts) { return new Date(ts || Date.now()).toLocaleString('vi-VN'); }
-function getActiveProfile() { return profiles.find((p) => p.id === activeProfileId) || profiles[0] || null; }
+
+function escapeHtml(value) {
+  return String(value || '').replace(/[&<>\"]/g, (character) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+  }[character]));
+}
+
+function platformIcon(platform) {
+  return PLATFORM_ICONS[platform || DEFAULT_PLATFORM] || '•';
+}
+
+function formatDate(timestamp) {
+  return new Date(timestamp || Date.now()).toLocaleString('vi-VN');
+}
+
+function getActiveProfile() {
+  return profiles.find((profile) => profile.id === activeProfileId) || profiles[0] || null;
+}
+
 function migrateLegacyProfiles() {
   if (workspaceData.profiles.length) return;
   try {
@@ -93,39 +124,44 @@ function migrateLegacyProfiles() {
         workspaceData.profiles = profiles;
       }
     }
-  } catch (e) { }
+  } catch {}
   if (!workspaceData.quickReplies.length) {
-    try {
-      const settings = ipcRenderer.sendSync('get-settings');
-      workspaceData.quickReplies = settings.quickReplies || [];
-    } catch (e) { }
+    workspaceData.quickReplies = settings.quickReplies || [];
   }
   persistWorkspace();
 }
 
 function renderSidebar() {
   profilesList.innerHTML = '';
+  profiles.forEach((profile) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
 
-  profiles.forEach((p) => {
-    const btn = document.createElement('div');
-
-    btn.className = `profile-btn ${p.id === activeProfileId ? 'active' : ''}`;
-    btn.title = `${p.name} (${p.platform || 'zalo'})`;
-    btn.dataset.profileId = p.id;
+    btn.className = `profile-btn ${profile.id === activeProfileId ? 'active' : ''}`;
+    btn.title = `${profile.name} (${profile.platform || DEFAULT_PLATFORM})`;
+    btn.setAttribute('aria-label', profile.name);
+    btn.setAttribute('aria-pressed', String(profile.id === activeProfileId));
+    btn.dataset.profileId = profile.id;
     btn.draggable = !appLocked;
 
     const span = document.createElement('span');
-    span.innerText = p.avatar ? '' : platformIcon(p.platform);
+    span.textContent = profile.avatar ? '' : platformIcon(profile.platform);
 
-    if (p.avatar) {
+    if (profile.avatar) {
       const img = document.createElement('img');
-
-      img.src = p.avatar.startsWith('http')
-        ? p.avatar
-        : `file://${String(p.avatar).replace(/\\/g, '/')}`;
-
-      img.style.cssText =
-        'width:100%;height:100%;border-radius:inherit;object-fit:cover;position:absolute;inset:0;pointer-events:none;';
+      img.alt = '';
+      img.src = profile.avatar.startsWith('http')
+        ? profile.avatar
+        : `file://${String(profile.avatar).replace(/\\/g, '/')}`;
+      Object.assign(img.style, {
+        position: 'absolute',
+        inset: '0',
+        width: '100%',
+        height: '100%',
+        borderRadius: 'inherit',
+        objectFit: 'cover',
+        pointerEvents: 'none',
+      });
 
       btn.appendChild(img);
     } else {
@@ -135,19 +171,19 @@ function renderSidebar() {
     const badge = document.createElement('div');
 
     badge.className = 'badge';
-    badge.id = `badge-${p.id}`;
-    badge.innerText = '0';
+    badge.id = `badge-${profile.id}`;
+    badge.textContent = '0';
 
     btn.appendChild(badge);
 
     btn.onclick = () => {
       if (Date.now() < suppressProfileClickUntil) return;
-      if (!appLocked) switchProfile(p.id);
+      if (!appLocked) switchProfile(profile.id);
     };
 
     btn.oncontextmenu = (e) => {
       e.preventDefault();
-      if (!appLocked) openModal(p);
+      if (!appLocked) openModal(profile);
     };
 
     btn.addEventListener('dragstart', (e) => {
@@ -156,13 +192,13 @@ function renderSidebar() {
         return;
       }
 
-      draggedProfileId = p.id;
+      draggedProfileId = profile.id;
       suppressProfileClickUntil = Date.now() + 500;
 
       btn.classList.add('dragging');
 
       e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', p.id);
+      e.dataTransfer.setData('text/plain', profile.id);
     });
 
     btn.addEventListener('dragend', () => {
@@ -177,7 +213,7 @@ function renderSidebar() {
     });
 
     btn.addEventListener('dragover', (e) => {
-      if (appLocked || !draggedProfileId || draggedProfileId === p.id) return;
+      if (appLocked || !draggedProfileId || draggedProfileId === profile.id) return;
 
       e.preventDefault();
 
@@ -239,42 +275,41 @@ function renderSidebar() {
   });
 }
 
-function switchProfile(id) {
-  activeProfileId = id;
-  
-  // Chỉ update class active mà không render lại toàn bộ sidebar
+function switchProfile(profileId) {
+  activeProfileId = profileId;
+
   profilesList.querySelectorAll('.profile-btn').forEach((btn) => {
-    if (btn.dataset.profileId === id) {
-      btn.classList.add('active');
-    } else {
-      btn.classList.remove('active');
-    }
+    const isActive = btn.dataset.profileId === profileId;
+    btn.classList.toggle('active', isActive);
+    btn.setAttribute('aria-pressed', String(isActive));
   });
-  
+
   const profile = getActiveProfile();
   if (profile) ipcRenderer.send('switch-profile', profile);
 }
 function openModal(profileToEdit = null) {
   editingProfile = profileToEdit;
-  tempAvatarPath = profileToEdit ? profileToEdit.avatar : null;
-  modalTitle.innerText = profileToEdit ? 'Chỉnh sửa tài khoản' : 'Thêm tài khoản';
-  nameInput.value = profileToEdit ? profileToEdit.name : '';
+  tempAvatarPath = profileToEdit?.avatar || null;
+  modalTitle.textContent = profileToEdit ? 'Chỉnh sửa tài khoản' : 'Thêm tài khoản';
+  nameInput.value = profileToEdit?.name || '';
   proxyInput.value = profileToEdit?.proxy || '';
-  platformInput.value = profileToEdit?.platform || 'zalo';
-  document.getElementById('modal-delete').style.display = profileToEdit ? 'inline-flex' : 'none';
+  platformInput.value = profileToEdit?.platform || DEFAULT_PLATFORM;
+  document.getElementById('modal-delete').hidden = !profileToEdit;
   updateAvatarPreview();
   openOverlay('modal-overlay');
   nameInput.focus();
 }
 function updateAvatarPreview() {
   if (tempAvatarPath) {
-    avatarImg.src = tempAvatarPath.startsWith('http') ? tempAvatarPath : `file://${String(tempAvatarPath).replace(/\\/g, '/')}`;
-    avatarImg.style.display = 'block';
-    avatarLetter.style.display = 'none';
+    avatarImg.src = tempAvatarPath.startsWith('http')
+      ? tempAvatarPath
+      : `file://${String(tempAvatarPath).replace(/\\/g, '/')}`;
+    avatarImg.hidden = false;
+    avatarLetter.hidden = true;
   } else {
-    avatarImg.style.display = 'none';
-    avatarLetter.style.display = 'block';
-    avatarLetter.innerText = platformIcon(platformInput.value || 'zalo');
+    avatarImg.hidden = true;
+    avatarLetter.hidden = false;
+    avatarLetter.textContent = platformIcon(platformInput.value || DEFAULT_PLATFORM);
   }
 }
 
@@ -284,15 +319,31 @@ function renderWorkspaces() {
     list.innerHTML = '<div class="empty-state">Chưa có workspace.</div>';
     return;
   }
-  list.innerHTML = workspaceState.workspaces.map((workspace) => `
-    <div class="workspace-item">
-      <div class="row"><div><div class="title-lg">${escapeHtml(workspace.name)}</div><div class="muted">${workspace.id} • ${formatDate(workspace.createdAt)}</div></div><button class="modal-btn ${workspace.id === workspaceState.currentId ? 'save' : 'cancel'}" data-workspace="${workspace.id}">${workspace.id === workspaceState.currentId ? 'Đang dùng' : 'Chuyển'}</button></div>
-    </div>`).join('');
-  list.querySelectorAll('[data-workspace]').forEach((btn) => {
-    btn.onclick = () => {
-      const id = btn.getAttribute('data-workspace');
-      if (id === workspaceState.currentId) return;
-      workspaceState = ipcRenderer.sendSync('workspace-switch', id);
+  list.innerHTML = workspaceState.workspaces.map((workspace) => {
+    const isCurrentWorkspace = workspace.id === workspaceState.currentId;
+    const buttonLabel = isCurrentWorkspace ? 'Đang dùng' : 'Chuyển';
+    const buttonStyle = isCurrentWorkspace ? 'save' : 'cancel';
+
+    return `
+      <div class="workspace-item">
+        <div class="row">
+          <div>
+            <div class="title-lg">${escapeHtml(workspace.name)}</div>
+            <div class="muted">${escapeHtml(workspace.id)} · ${formatDate(workspace.createdAt)}</div>
+          </div>
+          <button type="button" class="modal-btn ${buttonStyle}" data-workspace="${escapeHtml(workspace.id)}">
+            ${buttonLabel}
+          </button>
+        </div>
+      </div>`;
+  }).join('');
+
+  list.querySelectorAll('[data-workspace]').forEach((button) => {
+    button.onclick = () => {
+      const workspaceId = button.dataset.workspace;
+      if (workspaceId === workspaceState.currentId) return;
+
+      workspaceState = ipcRenderer.sendSync('workspace-switch', workspaceId);
       workspaceData = normalizeWorkspaceData(workspaceState.data);
       profiles = normalizeProfiles(workspaceData.profiles);
       activeProfileId = profiles[0]?.id || null;
@@ -311,13 +362,19 @@ function renderQuickReplies() {
   }
   list.innerHTML = quickReplies.map((reply, index) => `
     <div class="download-item">
-      <div class="row"><div class="title-sm">/${index + 1}</div><div><button class="modal-btn cancel" data-edit="${index}">Sửa</button><button class="modal-btn warn" data-delete="${index}">Xóa</button></div></div>
+      <div class="row">
+        <div class="title-sm">/${index + 1}</div>
+        <div>
+          <button type="button" class="modal-btn cancel" data-edit="${index}">Sửa</button>
+          <button type="button" class="modal-btn warn" data-delete="${index}">Xóa</button>
+        </div>
+      </div>
       <div class="muted mt-12">${escapeHtml(reply.message)}</div>
     </div>`).join('');
   list.querySelectorAll('[data-edit]').forEach((button) => {
     button.onclick = () => {
-      const index = Number(button.getAttribute('data-edit'));
-      const next = prompt('Sửa quick reply', workspaceData.quickReplies[index].message);
+      const index = Number(button.dataset.edit);
+      const next = prompt('Sửa tin nhắn mẫu', workspaceData.quickReplies[index].message);
       if (next && next.trim()) {
         workspaceData.quickReplies[index].message = next.trim();
         persistWorkspace();
@@ -327,13 +384,14 @@ function renderQuickReplies() {
   });
   list.querySelectorAll('[data-delete]').forEach((button) => {
     button.onclick = () => {
-      const index = Number(button.getAttribute('data-delete'));
+      const index = Number(button.dataset.delete);
       workspaceData.quickReplies.splice(index, 1);
       persistWorkspace();
       renderQuickReplies();
     };
   });
 }
+
 function addQuickReplyFromInput() {
   const input = document.getElementById('quick-reply-input');
   const message = input.value.trim();
@@ -348,26 +406,51 @@ function renderDownloads() {
   const list = document.getElementById('downloads-list');
   if (!list) return;
   if (!downloads.length) {
-    list.innerHTML = '<p class="download-meta">Chưa có file tải xuống.</p>';
+    list.innerHTML = '<div class="empty-state">Chưa có tệp tải xuống.</div>';
     return;
   }
-  list.innerHTML = downloads.slice().reverse().map((d) => {
-    const pct = d.totalBytes ? Math.round((d.receivedBytes / d.totalBytes) * 100) : (d.status === 'completed' ? 100 : 0);
-    return `<div class="download-item"><div class="title-sm">${escapeHtml(d.filename || 'download')}</div><div class="download-meta">${escapeHtml(d.statusText || d.status || '')} ${pct ? `• ${pct}%` : ''}</div><div class="progress mt-12"><span style="width:${pct}%"></span></div><div class="row mt-12"><button class="modal-btn cancel" data-folder="${d.id}">Thư mục</button><div><button class="modal-btn cancel" data-open="${d.id}">Mở</button><button class="modal-btn warn" data-remove="${d.id}">Xóa</button></div></div></div>`;
+  list.innerHTML = downloads.slice().reverse().map((download) => {
+    const percentage = download.totalBytes
+      ? Math.round((download.receivedBytes / download.totalBytes) * 100)
+      : (download.status === 'completed' ? 100 : 0);
+
+    return `
+      <div class="download-item">
+        <div class="title-sm">${escapeHtml(download.filename || 'download')}</div>
+        <div class="download-meta">
+          ${escapeHtml(download.statusText || download.status || '')}
+          ${percentage ? ` · ${percentage}%` : ''}
+        </div>
+        <div class="progress mt-12"><span style="width: ${percentage}%"></span></div>
+        <div class="row mt-12">
+          <button type="button" class="modal-btn cancel" data-folder="${escapeHtml(download.id)}">Thư mục</button>
+          <div>
+            <button type="button" class="modal-btn cancel" data-open="${escapeHtml(download.id)}">Mở</button>
+            <button type="button" class="modal-btn warn" data-remove="${escapeHtml(download.id)}">Xóa</button>
+          </div>
+        </div>
+      </div>`;
   }).join('');
-  list.querySelectorAll('[data-open]').forEach((btn) => btn.onclick = () => ipcRenderer.send('open-download', btn.getAttribute('data-open')));
-  list.querySelectorAll('[data-folder]').forEach((btn) => btn.onclick = () => ipcRenderer.send('show-download-in-folder', btn.getAttribute('data-folder')));
-  list.querySelectorAll('[data-remove]').forEach((btn) => btn.onclick = () => {
-    ipcRenderer.send('remove-download', btn.getAttribute('data-remove'));
-    downloads = downloads.filter((item) => item.id !== btn.getAttribute('data-remove'));
-    renderDownloads();
+
+  list.querySelectorAll('[data-open]').forEach((button) => {
+    button.onclick = () => ipcRenderer.send('open-download', button.dataset.open);
+  });
+  list.querySelectorAll('[data-folder]').forEach((button) => {
+    button.onclick = () => ipcRenderer.send('show-download-in-folder', button.dataset.folder);
+  });
+  list.querySelectorAll('[data-remove]').forEach((button) => {
+    button.onclick = () => {
+      ipcRenderer.send('remove-download', button.dataset.remove);
+      downloads = downloads.filter((download) => download.id !== button.dataset.remove);
+      renderDownloads();
+    };
   });
 }
 function renderUpdate() {
-  document.getElementById('update-status').innerText = updateState.message || 'Sẵn sàng kiểm tra cập nhật.';
+  document.getElementById('update-status').textContent = updateState.message || 'Sẵn sàng kiểm tra cập nhật.';
   document.getElementById('update-progress').style.width = `${updateState.progress || 0}%`;
-  document.getElementById('update-download').style.display = updateState.status === 'available' ? 'inline-flex' : 'none';
-  document.getElementById('update-install').style.display = updateState.status === 'downloaded' ? 'inline-flex' : 'none';
+  document.getElementById('update-download').hidden = updateState.status !== 'available';
+  document.getElementById('update-install').hidden = updateState.status !== 'downloaded';
 }
 
 function renderAll() {
@@ -379,10 +462,19 @@ function renderAll() {
 }
 
 avatarPreview.onclick = () => avatarInput.click();
-avatarInput.onchange = (e) => { if (e.target.files && e.target.files[0]) { tempAvatarPath = e.target.files[0].path; updateAvatarPreview(); } };
+avatarInput.addEventListener('change', (event) => {
+  const selectedFile = event.target.files?.[0];
+  if (!selectedFile) return;
+
+  tempAvatarPath = selectedFile.path;
+  updateAvatarPreview();
+});
 platformInput.addEventListener('change', updateAvatarPreview);
 
-document.querySelectorAll('[data-close]').forEach((button) => { button.onclick = () => closeOverlay(button.getAttribute('data-close')); });
+document.querySelectorAll('[data-close]').forEach((button) => {
+  button.onclick = () => closeOverlay(button.dataset.close);
+});
+
 document.getElementById('btn-add-profile').onclick = () => openModal();
 document.getElementById('modal-cancel').onclick = () => closeOverlay('modal-overlay');
 document.getElementById('modal-delete').onclick = () => {
@@ -397,6 +489,7 @@ document.getElementById('modal-delete').onclick = () => {
   renderAll();
   if (activeProfileId) switchProfile(activeProfileId);
 };
+
 document.getElementById('modal-save').onclick = () => {
   const name = nameInput.value.trim() || `Tài khoản ${profiles.length + 1}`;
   if (editingProfile) {
@@ -407,7 +500,14 @@ document.getElementById('modal-save').onclick = () => {
     ipcRenderer.send('update-profile-settings', editingProfile);
   } else {
     const id = String(Date.now());
-    profiles.push({ id, name, avatar: tempAvatarPath, partition: `persist:nick_${id}`, platform: platformInput.value, proxy: proxyInput.value.trim() });
+    profiles.push({
+      id,
+      name,
+      avatar: tempAvatarPath,
+      partition: `persist:nick_${id}`,
+      platform: platformInput.value,
+      proxy: proxyInput.value.trim(),
+    });
     activeProfileId = id;
   }
   persistWorkspace();
@@ -416,26 +516,24 @@ document.getElementById('modal-save').onclick = () => {
   if (activeProfileId) switchProfile(activeProfileId);
 };
 
-const btnSidebarBack = document.getElementById('btn-sidebar-back');
-if (btnSidebarBack) {
-  btnSidebarBack.onclick = (e) => {
-    e.preventDefault();
-        btnSidebarBack.style.transform = 'translateX(-4px)';
-    setTimeout(() => btnSidebarBack.style.transform = 'translateX(0)', 150);
-        ipcRenderer.send('go-back-page');
-  };
-}
-const btnSidebarReload = document.getElementById('btn-sidebar-reload');
-if (btnSidebarReload) {
-  btnSidebarReload.onclick = () => {
-    // Tạo hiệu ứng xoay 180 độ cho mượt mắt khi click
-    btnSidebarReload.style.transform = 'rotate(180deg)';
-    setTimeout(() => btnSidebarReload.style.transform = 'rotate(0deg)', 300);
-    
-    // Bắn tín hiệu sang main process để reload BrowserView đang active
-    ipcRenderer.send('reload-page');
-  };
-}
+const backButton = document.getElementById('btn-sidebar-back');
+backButton.onclick = () => {
+  backButton.style.transform = 'translateX(-4px)';
+  setTimeout(() => { backButton.style.transform = ''; }, 150);
+  ipcRenderer.send('go-back-page');
+};
+
+const reloadButton = document.getElementById('btn-sidebar-reload');
+reloadButton.onclick = () => {
+  reloadButton.style.transform = 'rotate(180deg)';
+  setTimeout(() => { reloadButton.style.transform = ''; }, 300);
+  ipcRenderer.send('reload-page');
+};
+
+document.getElementById('btn-open-downloads').onclick = () => openOverlay('downloads-overlay');
+document.getElementById('btn-open-workspaces').onclick = () => openOverlay('workspace-overlay');
+document.getElementById('btn-open-quick-replies').onclick = () => openOverlay('quick-replies-overlay');
+
 document.getElementById('workspace-create-btn').onclick = () => {
   const input = document.getElementById('workspace-name-input');
   const name = input.value.trim() || 'Workspace mới';
@@ -444,14 +542,15 @@ document.getElementById('workspace-create-btn').onclick = () => {
   profiles = normalizeProfiles(workspaceData.profiles);
   activeProfileId = profiles[0]?.id || null;
   input.value = '';
+  persistWorkspace();
   renderAll();
   if (activeProfileId) switchProfile(activeProfileId);
 };
 
 document.getElementById('quick-reply-add').onclick = addQuickReplyFromInput;
-document.getElementById('quick-reply-input').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault();
+document.getElementById('quick-reply-input').addEventListener('keydown', (event) => {
+  if (event.key === 'Enter' && !event.shiftKey) {
+    event.preventDefault();
     addQuickReplyFromInput();
   }
 });
@@ -463,11 +562,14 @@ document.getElementById('update-install').onclick = () => ipcRenderer.send('inst
 function showLockOverlay(setupMode = false) {
   appLocked = true;
   openOverlay('lock-overlay');
-  document.getElementById('lock-password-confirm').style.display = setupMode ? 'block' : 'none';
-  document.getElementById('lock-hint').innerText = setupMode ? 'Tạo mật khẩu khóa ứng dụng.' : 'Nhập mật khẩu để mở khóa.';
-  document.getElementById('lock-submit').innerText = setupMode ? 'Tạo khóa' : 'Mở khóa';
+  const confirmInput = document.getElementById('lock-password-confirm');
+  confirmInput.hidden = !setupMode;
+  document.getElementById('lock-hint').textContent = setupMode
+    ? 'Tạo mật khẩu khóa ứng dụng.'
+    : 'Nhập mật khẩu để mở khóa.';
+  document.getElementById('lock-submit').textContent = setupMode ? 'Tạo khóa' : 'Mở khóa';
   document.getElementById('lock-password').value = '';
-  document.getElementById('lock-password-confirm').value = '';
+  confirmInput.value = '';
 }
 function hideLockOverlay() {
   appLocked = false;
@@ -479,10 +581,17 @@ document.getElementById('lock-submit').onclick = () => {
   if (!hasLockPassword) {
     if (!password || password !== confirmPassword) return alert('Mật khẩu không khớp.');
     ipcRenderer.send('set-lock-password', password);
-  } else ipcRenderer.send('unlock-app', password);
+  } else {
+    ipcRenderer.send('unlock-app', password);
+  }
 };
-document.getElementById('lock-password').addEventListener('keydown', (e) => { if (e.key === 'Enter') document.getElementById('lock-submit').click(); });
-document.getElementById('lock-password-confirm').addEventListener('keydown', (e) => { if (e.key === 'Enter') document.getElementById('lock-submit').click(); });
+const lockSubmit = document.getElementById('lock-submit');
+document.getElementById('lock-password').addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') lockSubmit.click();
+});
+document.getElementById('lock-password-confirm').addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') lockSubmit.click();
+});
 
 document.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'l') {
@@ -491,29 +600,63 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-ipcRenderer.on('downloads-list', (_, list) => { downloads = list || []; renderDownloads(); });
-ipcRenderer.on('download-updated', (_, item) => { downloads = downloads.filter((entry) => entry.id !== item.id).concat(item); renderDownloads(); });
-ipcRenderer.on('update-state', (_, state) => { updateState = state; renderUpdate(); if (state.status === 'available' || state.status === 'downloaded') openOverlay('update-overlay'); });
-ipcRenderer.on('lock-state', (_, state) => {
-  hasLockPassword = !!state.hasPassword;
-  const shieldButton = document.getElementById('btn-shield');
-  if (shieldButton) shieldButton.classList.toggle('active', !!state.zadarkShield);
-  if (state.locked) showLockOverlay(!hasLockPassword);
+ipcRenderer.on('downloads-list', (_event, list) => {
+  downloads = list || [];
+  renderDownloads();
 });
-ipcRenderer.on('unlock-result', (_, result) => { if (result.ok) { hasLockPassword = true; hideLockOverlay(); } else alert(result.message || 'Sai mật khẩu.'); });
-ipcRenderer.on('update-profile-badge', (_, { id, count }) => {
-  const badge = document.getElementById(`badge-${id}`);
-  if (badge) {
-    badge.innerText = count > 9 ? '9+' : count;
-    badge.style.display = count > 0 ? 'flex' : 'none';
+
+ipcRenderer.on('download-updated', (_event, updatedDownload) => {
+  downloads = downloads
+    .filter((download) => download.id !== updatedDownload.id)
+    .concat(updatedDownload);
+  renderDownloads();
+});
+
+ipcRenderer.on('update-state', (_event, nextState) => {
+  updateState = nextState;
+  renderUpdate();
+  if (['available', 'downloaded'].includes(nextState.status)) {
+    openOverlay('update-overlay');
   }
 });
-ipcRenderer.on('update-profile-info', (_, payload) => {
+ipcRenderer.on('theme-changed', (_, darkModeEnabled) => {
+  isDarkMode = darkModeEnabled;
+  document.body.className = isDarkMode ? 'dark-mode' : 'light-mode';
+});
+ipcRenderer.on('lock-state', (_, state) => {
+  hasLockPassword = !!state.hasPassword;
+  if (state.locked) showLockOverlay(!hasLockPassword);
+});
+ipcRenderer.on('unlock-result', (_event, result) => {
+  if (result.ok) {
+    hasLockPassword = true;
+    hideLockOverlay();
+  } else {
+    alert(result.message || 'Sai mật khẩu.');
+  }
+});
+
+ipcRenderer.on('update-profile-badge', (_event, { id, count }) => {
+  const badgeElement = document.getElementById(`badge-${id}`);
+  if (badgeElement) {
+    badgeElement.textContent = count > 9 ? '9+' : String(count);
+    badgeElement.style.display = count > 0 ? 'flex' : 'none';
+  }
+});
+
+ipcRenderer.on('update-profile-info', (_event, payload) => {
   const profile = profiles.find((entry) => entry.id === payload.id);
   if (!profile) return;
+
   let changed = false;
-  if (payload.name && profile.name.startsWith('Tài khoản')) { profile.name = payload.name; changed = true; }
-  if (payload.avatarUrl && !profile.avatar) { profile.avatar = payload.avatarUrl; changed = true; }
+  if (payload.name && profile.name.startsWith('Tài khoản')) {
+    profile.name = payload.name;
+    changed = true;
+  }
+  if (payload.avatarUrl && !profile.avatar) {
+    profile.avatar = payload.avatarUrl;
+    changed = true;
+  }
   if (changed) {
     persistWorkspace();
     renderSidebar();
@@ -524,14 +667,6 @@ const settings = ipcRenderer.sendSync('get-settings');
 isDarkMode = settings.isDarkMode;
 hasLockPassword = !!settings.hasLockPassword;
 document.body.className = isDarkMode ? 'dark-mode' : 'light-mode';
-const sunIcon = document.getElementById('icon-sun');
-const moonIcon = document.getElementById('icon-moon');
-if (sunIcon) sunIcon.style.display = isDarkMode ? 'none' : 'block';
-if (moonIcon) moonIcon.style.display = isDarkMode ? 'block' : 'none';
-const pinButton = document.getElementById('btn-pin');
-if (pinButton) pinButton.classList.toggle('active', !!settings.alwaysOnTop);
-const shieldButton = document.getElementById('btn-shield');
-if (shieldButton) shieldButton.classList.toggle('active', !!settings.zadarkShield);
 
 migrateLegacyProfiles();
 renderAll();
@@ -539,6 +674,3 @@ if (activeProfileId) switchProfile(activeProfileId);
 ipcRenderer.send('renderer-ready');
 ipcRenderer.send('get-downloads');
 if (settings.lockOnStartup) showLockOverlay(!hasLockPassword);
-if (!settings.lockOnStartup) {
-  unlockAppFromAuth(); 
-}
