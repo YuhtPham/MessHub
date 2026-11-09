@@ -51,6 +51,7 @@ jobs:
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
       ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES: 'true'
       RELEASE_TAG: ${{ inputs.tag_name || github.ref_name }}
+      ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
       electron_config_cache: ${{ github.workspace }}/.cache/electron
 
     steps:
@@ -70,7 +71,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libopenjp2-tools
 
       - name: Cache Electron binaries
-        uses: actions/cache@v5
+        uses: actions/cache/restore@v5
         with:
           path: .cache/electron
           key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -91,6 +92,12 @@ jobs:
           done
           exit 1
 
+      - name: Save Electron binary cache
+        uses: actions/cache/save@v5
+        with:
+          path: .cache/electron
+          key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
       - name: Verify package version matches release tag
         shell: bash
         run: |
@@ -106,7 +113,18 @@ jobs:
           fi
 
       - name: Build application
-        run: ${{ matrix.command }}
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            if ${{ matrix.command }}; then
+              exit 0
+            fi
+            if [[ "$attempt" -lt 3 ]]; then
+              echo "::warning::Build failed on attempt $attempt; retrying in 15 seconds"
+              sleep 15
+            fi
+          done
+          exit 1
 
       - name: Upload platform build files
         uses: actions/upload-artifact@v6
