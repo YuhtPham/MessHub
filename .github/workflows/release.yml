@@ -23,7 +23,7 @@ jobs:
       matrix:
         include:
           - platform: Linux x64
-            os: ubuntu-latest
+            os: ubuntu-24.04
             artifact_name: linux-build
             command: npm run build -- --publish never
             patterns: |
@@ -51,15 +51,16 @@ jobs:
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
       ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES: 'true'
       RELEASE_TAG: ${{ inputs.tag_name || github.ref_name }}
+      electron_config_cache: ${{ github.workspace }}/.cache/electron
 
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ inputs.tag_name || github.ref }}
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -68,8 +69,27 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libopenjp2-tools
 
+      - name: Cache Electron binaries
+        uses: actions/cache@v5
+        with:
+          path: .cache/electron
+          key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            electron-${{ runner.os }}-
+
       - name: Install dependencies
-        run: npm ci
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            if npm ci; then
+              exit 0
+            fi
+            if [[ "$attempt" -lt 3 ]]; then
+              echo "::warning::npm ci failed on attempt $attempt; retrying in 15 seconds"
+              sleep 15
+            fi
+          done
+          exit 1
 
       - name: Verify package version matches release tag
         shell: bash
@@ -89,7 +109,7 @@ jobs:
         run: ${{ matrix.command }}
 
       - name: Upload platform build files
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ matrix.artifact_name }}
           path: ${{ matrix.patterns }}
@@ -97,31 +117,31 @@ jobs:
 
   publish:
     name: Publish GitHub Release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: build
     env:
       RELEASE_TAG: ${{ inputs.tag_name || github.ref_name }}
 
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ inputs.tag_name || github.ref }}
 
       - name: Download Linux build
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: linux-build
           path: release-assets/linux
 
       - name: Download Windows build
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: windows-build
           path: release-assets/windows
 
       - name: Download macOS build
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: macos-build
           path: release-assets/macos
