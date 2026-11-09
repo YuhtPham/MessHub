@@ -80,7 +80,7 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "PhamThuy1410",
+        "owner": "YuhtPham",
         "repo": "MessHub"
       }
     ]

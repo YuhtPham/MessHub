@@ -1,70 +1,81 @@
-name: Release 9Meta
+name: Build and publish MessHub Client
 
 on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
   build:
-    name: Build desktop apps
+    name: Build for ${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: macos-latest
-            artifact_name: mac-build
-            command: npm run build:mac -- --publish never
-            patterns: |
-              dist/*.dmg
-              dist/*.zip
-              dist/*.blockmap
-              dist/latest-mac.yml
-          - os: windows-latest
-            artifact_name: win-build
+          - platform: Linux x64
+            os: ubuntu-latest
+            artifact_name: linux-build
             command: npm run build -- --publish never
             patterns: |
-              dist/*.exe
-              dist/*.blockmap
-              dist/latest.yml
-
-    runs-on: ${{ matrix.os }}
+              MessHub Client-*-linux-x64.AppImage
+              latest-linux.yml
+          - platform: Windows x64
+            os: windows-latest
+            artifact_name: windows-build
+            command: npm run build:win -- --publish never
+            patterns: |
+              MessHub Client-Setup-*.exe
+              *.blockmap
+              latest.yml
+          - platform: macOS
+            os: macos-latest
+            artifact_name: macos-build
+            command: npm run build:mac -- --publish never
+            patterns: |
+              *.dmg
+              *.zip
+              *.blockmap
+              latest-mac.yml
 
     env:
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
       ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES: 'true'
 
     steps:
-      - name: Checkout source
+      - name: Check out source
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
 
+      - name: Install Linux packaging tools
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libopenjp2-tools
+
       - name: Install dependencies
         run: npm ci
 
-      - name: Verify package version matches tag
+      - name: Verify package version matches release tag
         shell: bash
         run: |
           TAG_VERSION="${GITHUB_REF_NAME#v}"
-          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          PACKAGE_VERSION="$(node -p "require('./package.json').version")"
           if [ "$TAG_VERSION" != "$PACKAGE_VERSION" ]; then
-            echo "Tag version v$TAG_VERSION does not match package.json version $PACKAGE_VERSION"
+            echo "Release tag v$TAG_VERSION does not match package.json version $PACKAGE_VERSION"
             exit 1
           fi
 
-      - name: Build artifacts
+      - name: Build application
         run: ${{ matrix.command }}
 
-      - name: Upload build outputs
+      - name: Upload platform build files
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
@@ -72,28 +83,44 @@ jobs:
           if-no-files-found: error
 
   publish:
-    name: Publish release assets
+    name: Publish GitHub Release
     runs-on: ubuntu-latest
     needs: build
 
     steps:
-      - name: Download macOS artifacts
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Download Linux build
         uses: actions/download-artifact@v4
         with:
-          name: mac-build
-          path: release-assets
+          name: linux-build
+          path: release-assets/linux
 
-      - name: Download Windows artifacts
+      - name: Download Windows build
         uses: actions/download-artifact@v4
         with:
-          name: win-build
-          path: release-assets
+          name: windows-build
+          path: release-assets/windows
 
-      - name: Publish release assets
+      - name: Download macOS build
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-build
+          path: release-assets/macos
+
+      - name: Add Linux installer script
+        run: cp install.sh release-assets/install.sh
+
+      - name: Publish release files
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           generate_release_notes: true
           draft: false
           prerelease: false
-          files: release-assets/**
+          files: |
+            release-assets/linux/*
+            release-assets/windows/*
+            release-assets/macos/*
+            release-assets/install.sh

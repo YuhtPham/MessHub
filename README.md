@@ -42,6 +42,29 @@ MessHub supports web-based communication platforms including:
 - TikTok
 - YouTube
 
+## Cài đặt cho người dùng
+
+Tải bộ cài phù hợp với hệ điều hành từ [GitHub Releases](https://github.com/YuhtPham/MessHub/releases/latest):
+
+| Hệ điều hành | File cần tải | Cách cài |
+| --- | --- | --- |
+| Windows | `MessHub Client-Setup-*.exe` | Mở file và làm theo trình cài đặt. |
+| macOS | `MessHub-Client-*-mac.dmg` | Mở DMG rồi kéo MessHub vào Applications. |
+| Linux x64 | `install.sh` | Chạy script để cài AppImage vào tài khoản hiện tại. |
+
+Trên Linux, `install.sh` tự nhận hệ điều hành và kiến trúc x64. Script dùng AppImage nằm cạnh nó nếu có; nếu không, script tải AppImage từ GitHub Releases. Không cần quyền quản trị. Người dùng có thể nhấp phải vào script và chọn chạy trong Terminal; hoặc mở Terminal tại thư mục tải xuống và chạy `bash install.sh`.
+
+Windows và macOS không chạy `install.sh`; các file `.exe` và `.dmg` là bộ cài giao diện đồ họa dành riêng cho hai hệ điều hành đó. Workflow GitHub Actions tự build cả ba nền tảng và đưa các bộ cài vào cùng một Release khi bạn push tag phiên bản.
+
+Để phát hành phiên bản mới, cập nhật `version` trong `package.json`, push commit lên GitHub, rồi tạo và push tag trùng phiên bản đó. Ví dụ với phiên bản `1.6.1`:
+
+```bash
+git tag v1.6.1
+git push origin v1.6.1
+```
+
+GitHub Actions sẽ build trên runner Windows, Linux và macOS, sau đó tạo Release. Người dùng Windows chỉ cần tải file `.exe` từ Release, nhấp đúp và làm theo trình cài đặt; họ không cần VS Code, Node.js hay npm.
+
 ---
 
 # Features
@@ -123,10 +146,13 @@ scripts/
 └── clean-build-output.js    Remove temporary Linux build files after packaging
 ```
 
+The repository root also contains `install.sh`, an interactive Linux AppImage installer.
+
 The Electron application entry point is `src/main/index.js`. User settings,
 workspaces, and browser session partitions retain their existing locations so
 updates preserve account sessions and local data.
 
 `npm run build` places the `MessHub Client` AppImage in the project root. The
 post-build cleanup removes the temporary `linux-unpacked` directory and builder
-diagnostic files while keeping the AppImage and update metadata.
+diagnostic files while keeping the AppImage and update metadata. Windows and
+macOS builds use their platform-specific scripts above.

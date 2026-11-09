@@ -144,6 +144,7 @@ function renderSidebar() {
     btn.setAttribute('aria-label', profile.name);
     btn.setAttribute('aria-pressed', String(profile.id === activeProfileId));
     btn.dataset.profileId = profile.id;
+    btn.dataset.platform = profile.platform || DEFAULT_PLATFORM;
     btn.draggable = !appLocked;
 
     const span = document.createElement('span');
